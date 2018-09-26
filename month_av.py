@@ -26,11 +26,9 @@ os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
 
 ## Define functions
 # Load model data
-def load_model(var):
+def load_mp(var):
     start = time.time()
-    pa = []
     pb = []
-    pf = []
     print('\nimporting data from %(var)s...' % locals())
     for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/'):
             if fnmatch.fnmatch(file, '*%(var)s_pb*' % locals()):
@@ -41,19 +39,22 @@ def load_model(var):
                 pf.append(file)
     os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
     print('\nice mass fraction')
+    # Load only last 12 hours of forecast (i.e. t+12 to t+24, discarding preceding 12 hours as spin-up) for bottom 40 levels, and perform unit conversion from kg kg-1 to g kg-1
     ice_mass_frac = iris.load(pb, iris.Constraint(name='mass_fraction_of_cloud_ice_in_air',
                                                   model_level_number=lambda cell: cell > 41,
-                                                  cube_func=lambda cube: cube * 1000,
                                                   forecast_period=lambda cell: cell >= 12.5))
+    ice_mass_frac.convert_units('g kg-1',)
     print('\nliquid mass fraction')
     liq_mass_frac = iris.load(pb, iris.Constraint(name='mass_fraction_of_cloud_liquid_in_air',
                                                   model_level_number=lambda cell: cell > 41,
-                                                  cube_func=lambda cube: cube * 1000,
                                                   forecast_period=lambda cell: cell >= 12.5))
-    print('\nice water path')
+    liq_mass_frac.convert_units('g kg-1',)
+    print('\nice water path') # as above, and convert from kg m-2 to g m-2
     IWP = iris.load(pb, iris.Constraint(STASH='m01s02i392', forecast_period=lambda cell: cell >= 12.5))# stash code s02i392
+    IWP.convert_units('g m-2')
     print('\nliquid water path')
     LWP = iris.load(pb, iris.Constraint(STASH='m01s02i391', forecast_period=lambda cell: cell >= 12.5))
+    LWP.convert_units('g m-2')
     lsm = iris.load_cube('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/20110118T0000Z_Peninsula_1p5km_RA1M_pa000.pp', 'land_binary_mask')
     orog = iris.load_cube('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/20110118T0000Z_Peninsula_1p5km_RA1M_pa000.pp', 'surface_altitude')
     for i in [ice_mass_frac, liq_mass_frac]:#, qc]:
@@ -62,15 +63,10 @@ def load_model(var):
         real_lon, real_lat = rotate_data(j, 2, 3) # time vars don't load in properly = forecast time + real time
     for k in [lsm, orog]:
         real_lon, real_lat = rotate_data(k, 0, 1)
-    # Convert model data to g kg-1
-    ice_mass_frac = ice_mass_frac * 1000
-    liq_mass_frac = liq_mass_frac * 1000
-    IWP = IWP * 1000 # convert to g m-2
-    LWP = LWP * 1000
-    #qc = qc * 1000
     # Convert times to useful ones
     for i in [IWP, LWP, ice_mass_frac, liq_mass_frac,]: #qc
         i.coord('time').convert_units('hours since 2011-01-01 00:00')
+
     ## ---------------------------------------- CREATE MODEL VERTICAL PROFILES ------------------------------------------ ##
     # Create mean vertical profiles for region of interest
     # region of interest = ice shelf. Longitudes of ice shelf along transect =
@@ -79,10 +75,10 @@ def load_model(var):
     # Coord: lon = 188:213, lat = 133:207, time = 4:6 (mean of preceding hours)
     # TESTING: try -63 to -60.8 W, -66.6 to -68.3 = 111:227, 162:213
     print('\ncreating vertical profiles geez...')
-    box_QCF = ice_mass_frac[:,:, :40, 133:207, 188:213].data
-    box_QCL = liq_mass_frac[:, :,40, 133:207, 188:213].data
+    box_QCF = ice_mass_frac[:, :, :, 133:207, 188:213].data
+    box_QCL = liq_mass_frac[:, :, :, 133:207, 188:213].data
     box_mean_IWP = np.mean(IWP[:, :, 133:207, 188:213].data, axis = (0,1,2))
-    box_mean_LWP = np.mean(LWP[:, :,133:207, 188:213].data, axis =(0,1,2))
+    box_mean_LWP = np.mean(LWP[:, :, 133:207, 188:213].data, axis =(0,1,2))
     mean_QCF = np.mean(box_QCF, axis=(0,1,3,4))
     mean_QCL = np.mean(box_QCL, axis=(0,1,3,4)) #0,2,3
     AWS14_mean_QCF = np.mean(ice_mass_frac[:, :,40, 199:201, 199:201].data, axis=(0, 1, 3,4))
@@ -132,7 +128,91 @@ def load_model(var):
     print '\nDone, in {:01d} secs'.format(int(end - start))
     return  var_dict
 
-Jan_2011 = load_model('lg_t')
+
+def load_met(var):
+    start = time.time()
+    pa = []
+    print('\nimporting data from %(var)s...' % locals())
+    for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/'):
+        if fnmatch.fnmatch(file, '*%(var)s*_pa*' % locals()):
+            pa.append(file)
+    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
+    print('\nAir temperature')
+    # Load only last 12 hours of forecast (i.e. t+12 to t+24, discarding preceding 12 hours as spin-up) for bottom 40 levels, and perform unit conversion from K to *C
+    T_air = iris.load(pa, iris.Constraint(name='air_temperature', model_level_number=lambda cell: cell <= 40, forecast_period=lambda cell: cell >= 12.5))[0].convert_units('celsius')
+    print('\nAir potential temperature')
+    theta = iris.load(pa, iris.Constraint(name='air_potential_temperature', model_level_number=lambda cell: cell <= 40, forecast_period=lambda cell: cell >= 12.5))[0].convert_units('celsius')
+    print('\nSurface temperature')
+    Ts = iris.load(pa, iris.Constraint(name='surface_temperature', forecast_period=lambda cell: cell >= 12.5))[0].convert_units('celsius')
+    print('\nSpecific humidity')
+    q = iris.load(pa, iris.Constraint(name='specific_humidity', model_level_number=lambda cell: cell <= 40, forecast_period=lambda cell: cell >= 12.5))[0].convert_units('g kg-1')
+    print('\nMean sea level pressure')
+    MSLP = iris.load(pa, iris.Constraint(name = 'air_pressure_at_sea_level')  & iris.Constraint(forecast_period=lambda cell: cell >= 12.5))[0].convert_units('hPa')
+    print('\nZonal component of wind')
+    u = iris.load(pa, iris.Constraint(name = 'x_wind', forecast_period=lambda cell: cell >= 12.5))[0]
+    print('\nMeridional component of wind')
+    v = iris.load(pa, iris.Constraint(name = 'y_wind', forecast_period=lambda cell: cell >= 12.5))[0]
+    lsm = iris.load_cube(pa, 'land_binary_mask')
+    orog = iris.load_cube(pa, 'surface_altitude')
+    for i in [theta, T_air, u, v, q]: # 4-D variables
+        real_lon, real_lat = rotate_data(i, 3, 4)
+    for j in [T_s, MSLP]:  # 3-D variables
+        real_lon, real_lat = rotate_data(j, 2, 3)  # time vars don't load in properly = forecast time + real time
+    for k in [lsm, orog]: # 2-D variables
+        real_lon, real_lat = rotate_data(k, 0, 1)
+    # Convert times to useful ones
+    for i in [theta, T_air, Ts, u, v, q, MSLP]:
+        i.coord('time').convert_units('hours since 2011-01-01 00:00')
+    # Create spatial means for maps
+    mean_MSLP = np.mean(MSLP.data, axis = (0,1))
+    mean_Ts = np.mean(Ts.data, axis = (0,1))
+    # Sort out time series loading
+    def construct_srs(cube):
+        i = np.arange(len(cube.coord('forecast_period')))
+        k = cube.data
+        series = []
+        for j in i:
+            a = k[:, j,:,:,:]
+            a = np.array(a)
+            series = np.append(series, a)
+        return series
+    # Produce time series
+    AWS14_Ts = Ts[:,:,200,200]
+    AWS14_Ts_srs = construct_srs(AWS14_Ts)
+    AWS14_Tair = T_air[:,:,0, 200,200]
+    AWS14_Tair_srs = construct_srs(AWS14_Tair)
+    AWS15_Ts = Ts[:,:,162,183]
+    AWS15_Ts_srs = construct_srs(AWS14_Ts)
+    AWS15_Tair = T_air[:,:,0, 162,183]
+    AWS15_Tair_srs = construct_srs(AWS14_Tair)
+    ## ---------------------------------------- CREATE MODEL VERTICAL PROFILES ------------------------------------------ ##
+    # Create mean vertical profiles for region of interest
+    # region of interest = ice shelf. Longitudes of ice shelf along transect =
+    # OR: region of interest = only where aircraft was sampling layer cloud: time 53500 to 62000 = 14:50 to 17:00
+    # Define box: -62 to -61 W, -66.9 to -68 S
+    # Coord: lon = 188:213, lat = 133:207, time = 4:6 (mean of preceding hours)
+    print('\ncreating vertical profiles geez...')
+    box_T = np.mean(T_air[:, :, :, 133:207, 188:213].data, axis=(0, 1, 3, 4))
+    box_theta = np.mean(theta[:, :, :, 133:207, 188:213].data, axis=(0, 1, 3, 4))
+    box_q = np.mean(q[:, :, :, 133:207, 188:213].data, axis=(0, 1, 3, 4))
+    AWS14_mean_T = np.mean(T_air[:, :, 40, 199:201, 199:201].data, axis=(0, 1, 3, 4))
+    AWS14_mean_theta = np.mean(theta[:, :, 40, 199:201, 199:201].data, axis=(0, 1, 3, 4))
+    AWS14_mean_q= np.mean(q[:, :, 40, 199:201, 199:201].data, axis=(0, 1, 3, 4))
+    AWS15_mean_T = np.mean(T_air[:, :, 40, 161:164, 182:184].data, axis=(0, 1, 3, 4))
+    AWS15_mean_theta = np.mean(theta[:, :, 40, 161:164, 182:184].data, axis=(0, 1, 3, 4))
+    AWS15_mean_q= np.mean(q[:, :, 40, 161:164, 182:184].data, axis=(0, 1, 3, 4))
+    altitude = T_air.coord('level_height').points[:40] / 1000
+    var_dict = {'real_lon': real_lon, 'real_lat': real_lat, 'lsm': lsm, 'orog': orog, 'altitude': altitude, 'box_T': box_T,
+                'box_theta': box_q, 'AWS14_mean_T': AWS14_mean_T, 'AWS14_mean_theta': AWS14_mean_theta, 'AWS14_mean_q': AWS14_mean_q,
+                'AWS15_mean_T': AWS15_mean_T, 'AWS15_mean_theta': AWS15_mean_theta, 'AWS15_mean_q': AWS15_mean_q,
+                'AWS14_Ts_srs': AWS14_Ts_srs, 'AWS14_Tair_srs': AWS14_Tair_srs, 'AWS15_Ts_srs': AWS15_Ts_srs, 'AWS15_Tair_srs': AWS15_Tair_srs}
+    end = time.time()
+    print
+    '\nDone, in {:01d} secs'.format(int(end - start))
+    return var_dict
+
+Jan_mp = load_mp('lg_t')
+Jan_surf
 
 def print_stats():
     model_mean = pd.DataFrame()
