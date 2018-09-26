@@ -20,12 +20,14 @@ import sys
 sys.path.append('/users/ellgil82/scripts/Tools/')
 from rotate_data import rotate_data
 from divg_temp_colourmap import shiftedColorMap
+import time
 
 os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
 
 ## Define functions
 # Load model data
 def load_model(var):
+    start = time.time()
     pa = []
     pb = []
     pf = []
@@ -39,18 +41,21 @@ def load_model(var):
                 pf.append(file)
     os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
     print('\nice mass fraction')
-    ice_mass_frac = iris.load_cube(pb, 'mass_fraction_of_cloud_ice_in_air')
+    ice_mass_frac = iris.load(pb, iris.Constraint(name='mass_fraction_of_cloud_ice_in_air',
+                                                  model_level_number=lambda cell: cell > 41,
+                                                  cube_func=lambda cube: cube * 1000,
+                                                  forecast_period=lambda cell: cell >= 12.5))
     print('\nliquid mass fraction')
-    liq_mass_frac = iris.load_cube(pb, 'mass_fraction_of_cloud_liquid_water_in_air')
-    c = iris.load(pb)# IWP and LWP dont load properly
+    liq_mass_frac = iris.load(pb, iris.Constraint(name='mass_fraction_of_cloud_liquid_in_air',
+                                                  model_level_number=lambda cell: cell > 41,
+                                                  cube_func=lambda cube: cube * 1000,
+                                                  forecast_period=lambda cell: cell >= 12.5))
     print('\nice water path')
-    IWP = c[1] # stash code s02i392
+    IWP = iris.load(pb, iris.Constraint(STASH='m01s02i392', forecast_period=lambda cell: cell >= 12.5))# stash code s02i392
     print('\nliquid water path')
-    LWP = c[0] # stash code s02i391
-    #qc = c[3]
-    #cl_A = iris.load_cube(pb, 'cloud_area_fraction_assuming_maximum_random_overlap')
-    lsm = iris.load_cube('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/20110118T1200Z_Peninsula_1p5km_RA1M_pa000.pp', 'land_binary_mask')
-    orog = iris.load_cube('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/20110118T1200Z_Peninsula_1p5km_RA1M_pa000.pp', 'surface_altitude')
+    LWP = iris.load(pb, iris.Constraint(STASH='m01s02i391', forecast_period=lambda cell: cell >= 12.5))
+    lsm = iris.load_cube('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/20110118T0000Z_Peninsula_1p5km_RA1M_pa000.pp', 'land_binary_mask')
+    orog = iris.load_cube('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/20110118T0000Z_Peninsula_1p5km_RA1M_pa000.pp', 'surface_altitude')
     for i in [ice_mass_frac, liq_mass_frac]:#, qc]:
         real_lon, real_lat = rotate_data(i, 3, 4)
     for j in [LWP, IWP,]: #cl_A
@@ -65,7 +70,7 @@ def load_model(var):
     #qc = qc * 1000
     # Convert times to useful ones
     for i in [IWP, LWP, ice_mass_frac, liq_mass_frac,]: #qc
-        i.coord('time').convert_units('hours since 2011-01-18 00:00')
+        i.coord('time').convert_units('hours since 2011-01-01 00:00')
     ## ---------------------------------------- CREATE MODEL VERTICAL PROFILES ------------------------------------------ ##
     # Create mean vertical profiles for region of interest
     # region of interest = ice shelf. Longitudes of ice shelf along transect =
@@ -123,6 +128,8 @@ def load_model(var):
                 'AWS15_mean_QCF': AWS15_mean_QCF, 'AWS15_mean_QCL': AWS15_mean_QCL, 'box_QCF': box_QCF, 'box_QCL': box_QCL,'box_mean_IWP': box_mean_IWP, 'box_mean_LWP': box_mean_LWP, 'IWP': IWP, 'LWP':LWP,
                 'AWS14_mean_IWP': AWS14_mean_IWP, 'AWS14_mean_LWP': AWS14_mean_LWP, 'AWS15_mean_IWP': AWS15_mean_IWP, 'AWS15_mean_LWP': AWS15_mean_LWP,
                 }#'cl_A': cl_A,'qc': qc,'ice_5': ice_5, 'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'min_QCF': min_QCF, 'max_QCF': max_QCF, 'min_QCL': min_QCL,
+    end = time.time()
+    print '\nDone, in {:01d} secs'.format(int(end - start))
     return  var_dict
 
 Jan_2011 = load_model('lg_t')
