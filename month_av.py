@@ -161,9 +161,11 @@ def load_met(var):
     for k in [lsm, orog]: # 2-D variables
         real_lon, real_lat = rotate_data(k, 0, 1)
     # Convert times to useful ones
+    print('\nConverting times...')
     for i in [theta, T_air, Ts, u, v, q, MSLP]:
         i.coord('time').convert_units('hours since 2011-01-01 00:00')
     # Create spatial means for maps
+    print('\nCalculating means...')
     mean_MSLP = np.mean(MSLP.data, axis = (0,1))
     mean_Ts = np.mean(Ts.data, axis = (0,1))
     # Sort out time series loading
@@ -177,6 +179,7 @@ def load_met(var):
             series = np.append(series, a)
         return series
     # Produce time series
+    print('\nCreating time series...')
     AWS14_Ts = Ts[:,:,200,200]
     AWS14_Ts_srs = construct_srs(AWS14_Ts)
     AWS14_Tair = T_air[:,:,0, 200,200]
@@ -191,13 +194,15 @@ def load_met(var):
     # OR: region of interest = only where aircraft was sampling layer cloud: time 53500 to 62000 = 14:50 to 17:00
     # Define box: -62 to -61 W, -66.9 to -68 S
     # Coord: lon = 188:213, lat = 133:207, time = 4:6 (mean of preceding hours)
-    print('\ncreating vertical profiles geez...')
+    print('\ncreating vertical profiles...\n\nBox means first...')
     box_T = np.mean(T_air[:, :, :, 133:207, 188:213].data, axis=(0, 1, 3, 4))
     box_theta = np.mean(theta[:, :, :, 133:207, 188:213].data, axis=(0, 1, 3, 4))
     box_q = np.mean(q[:, :, :, 133:207, 188:213].data, axis=(0, 1, 3, 4))
+    print('\nNow for AWS 14...')
     AWS14_mean_T = np.mean(T_air[:, :, 40, 199:201, 199:201].data, axis=(0, 1, 3, 4))
     AWS14_mean_theta = np.mean(theta[:, :, 40, 199:201, 199:201].data, axis=(0, 1, 3, 4))
     AWS14_mean_q= np.mean(q[:, :, 40, 199:201, 199:201].data, axis=(0, 1, 3, 4))
+    print('\nLast bit! Repeating for AWS 15...')
     AWS15_mean_T = np.mean(T_air[:, :, 40, 161:164, 182:184].data, axis=(0, 1, 3, 4))
     AWS15_mean_theta = np.mean(theta[:, :, 40, 161:164, 182:184].data, axis=(0, 1, 3, 4))
     AWS15_mean_q= np.mean(q[:, :, 40, 161:164, 182:184].data, axis=(0, 1, 3, 4))
@@ -212,7 +217,7 @@ def load_met(var):
     return var_dict
 
 Jan_mp = load_mp('lg_t')
-Jan_surf
+Jan_met = load_met('lg_t')
 
 def print_stats():
     model_mean = pd.DataFrame()
@@ -383,7 +388,6 @@ def load_obs():
     n_ice_profile = np.append([0,0,0], n_ice_profile)
     return IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_liq, drop_profile, drop_array, nconc_ice, box_IWC, box_LWC, box_nconc_ice, box_nconc_liq, n_ice_profile
 
-#mean_QCF, mean_QCL, altitude, liq_5, liq_95, max_QCF, max_QCL, min_QCF, min_QCL, ice_5, ice_95, AWS14_mean_QCF, AWS14_mean_QCL, AWS15_mean_QCF, AWS15_mean_QCL, real_lon, real_lat = load_model('CASIM_ctrl')
 
 ## ================================================= PLOTTING ======================================================= ##
 
@@ -439,7 +443,7 @@ def column_totals():
     plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/v11_water_paths_Jan_2011.eps', transparent=True)
     #plt.show()
 
-column_totals()
+#column_totals()
 
 def QCF_plot():
     fig, ax = plt.subplots(2,3, figsize=(22,16))
@@ -598,9 +602,36 @@ def QCL_plot():
     #plt.show()
 
 
-QCF_plot()
-QCL_plot()
+def T_plot():
+    fig, ax = plt.subplots(1,1, figsize=(10,10))
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.setp(ax.spines.values(), linewidth=3, color='dimgrey')
+    ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+    [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
+    [l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
+    m_QCL = ax.plot(Jan_met['box_T'], Jan_met['altitude'], color='k', linestyle = '--', linewidth=3, label='Model: Cloud box')
+    m_14 = ax.plot(Jan_met['AWS14_mean_T'], Jan_met['altitude'], color='darkred', linestyle = ':', linewidth=3, label='Model: AWS 14')
+    m_15= ax.plot(Jan_met['AWS15_mean_T'], Jan_met['altitude'], color='darkblue', linestyle='--', linewidth=3, label='Model: AWS 15')
+    #ax[plot].fill_betweenx(run['altitude'], run['liq_5'], run['liq_95'], facecolor='lightslategrey', alpha = 0.5)  # Shaded region between maxima and minima
+    #ax[plot].plot(run['liq_5'], run['altitude'], color='darkslateblue', linestyle=':', linewidth=2)
+    #ax[plot].plot(run['liq_95'], run['altitude'], color='darkslateblue', linestyle=':', linewidth=2)  # Plot 5th and 95th percentiles
+    ax.set_xlim(0, np.ceil(max(Jan_met['box_T'])))
+    ax.set_ylim(0, max(Jan_met['altitude']))
+    plt.setp(ax.get_xticklabels()[0], visible=False)
+    ax.axes.tick_params(axis='both', which='both', tick1On=False, tick2On=False,)
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+    print('\n PLOTTING DIS BIATCH...')
+    ax.set_ylabel('Altitude (km)', fontname='SegoeUI semibold', color = 'dimgrey', fontsize=28, labelpad=20)
+    ax.set_xlabel('Air temperature ($^{\circ}$C)', fontname='SegoeUI semibold', color='dimgrey', fontsize=28, labelpad=35)
+    plt.subplots_adjust(bottom=0.1, top=0.95, left=0.12, right=0.95, hspace=0.12, wspace=0.08)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/v11_T_Jan_2011.png')
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/v11_T_Jan_2011.eps')
+    #plt.show()
 
+#QCF_plot()
+#QCL_plot()
+T_plot()
 
 from itertools import chain
 import scipy
@@ -679,7 +710,7 @@ def correl_plot():
     plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/correlations_Jan_2011.pdf', transparent=True)
     #plt.show()
 
-correl_plot()
+#correl_plot()
 
 from matplotlib.lines import Line2D
 
@@ -729,8 +760,7 @@ def IWP_time_srs():
         [w.set_linewidth(2) for w in ax[plot+1].spines.itervalues()]
         ax[plot+1].set_xlim(run['IWP'].coord('time').points[1], run['IWP'].coord('time').points[-1])
         titles = ['    RA1M','    RA1M', 'RA1M_mod', 'RA1M_mod', '     fl_av','     fl_av', '    RA1T', '    RA1T', 'RA1T_mod','RA1T_mod', '   CASIM', '   CASIM']
-        ax[plot].text(0.83, 1.05, transform=ax[plot].transAxes, s=titles[plot], fontsize=28,
-                      color='dimgrey')
+        ax[plot].text(0.83, 1.05, transform=ax[plot].transAxes, s=titles[plot], fontsize=28, color='dimgrey')
         print('\nDONE!')
         print('\nNEEEEEXT')
         plot = plot + 2
@@ -754,5 +784,5 @@ def IWP_time_srs():
     plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/vn11_water_path_time_srs_Jan_2011.eps')
     #plt.show()
 
-IWP_time_srs()
+IWP_time_srs(), T_plot()
 
