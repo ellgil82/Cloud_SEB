@@ -16,54 +16,28 @@ import dateutil
 from itertools import groupby, count
 from matplotlib.ticker import FormatStrFormatter
 from matplotlib import rcParams
+import sys
+sys.path.append('/users/ellgil82/scripts/Tools/')
+from tools import compose_date, compose_time
+from rotate_data import rotate_data
+from divg_temp_colourmap import shiftedColorMap
 
-os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/t24/')
-
-## Define functions
-def rotate_data(var, lat_dim, lon_dim):
-    ## Rotate projection
-    #create numpy arrays of coordinates
-    rotated_lat = var.coord('grid_latitude').points
-    rotated_lon = var.coord('grid_longitude').points
-    ## set up parameters for rotated projection
-    pole_lon = var.coord('grid_longitude').coord_system.grid_north_pole_longitude
-    pole_lat = var.coord('grid_latitude').coord_system.grid_north_pole_latitude
-    #rotate projection
-    real_lon, real_lat = iris.analysis.cartography.unrotate_pole(rotated_lon,rotated_lat, pole_lon, pole_lat)
-    print ('\nunrotating pole...')
-    lat = var.coord('grid_latitude')
-    lon = var.coord('grid_longitude')
-    lat = iris.coords.DimCoord(real_lat, standard_name='latitude',long_name="grid_latitude",var_name="lat",units=lat.units)
-    lon= iris.coords.DimCoord(real_lon, standard_name='longitude',long_name="grid_longitude",var_name="lon",units=lon.units)
-    var.remove_coord('grid_latitude')
-    var.add_dim_coord(lat, data_dim=lat_dim)
-    var.remove_coord('grid_longitude')
-    var.add_dim_coord(lon, data_dim=lon_dim)
-    return real_lon, real_lat
+os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
 
 # Load model data
-def load_model(var, times): #times should be a range in the format 11,21
+def load_model(config, flight_date, times): #times should be a range in the format 11,21
     pa = []
     pb = []
-    pc = []
-    ppd = []
-    pe = []
     pf = []
-    print('\nimporting data from %(var)s...' % locals())
-    for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/t24/'):
-            if fnmatch.fnmatch(file, '*%(var)s_pb*' % locals()):
+    print('\nimporting data from %(config)s...' % locals())
+    for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/'):
+            if fnmatch.fnmatch(file, flight_date + '*%(config)s_pb*' % locals()):
                 pb.append(file)
-            elif fnmatch.fnmatch(file, '*%(var)s_pa*' % locals()):
+            elif fnmatch.fnmatch(file, flight_date + '*%(config)s_pa*' % locals()):
                 pa.append(file)
-            elif fnmatch.fnmatch(file, '*%(var)s_pc*' % locals()):
-                pc.append(file)
-            elif fnmatch.fnmatch(file, '*%(var)s_ppd*' % locals()):
-                ppd.append(file)
-            elif fnmatch.fnmatch(file, '*%(var)s_pe*' % locals()):
-                pe.append(file)
-            elif fnmatch.fnmatch(file, '*%(var)s_pf*' % locals()):
+            elif fnmatch.fnmatch(file, flight_date) & fnmatch.fnmatch(file, '*%(config)s_pf*' % locals()):
                 pf.append(file)
-    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/t24/')
+    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
     ice_mass_frac = iris.load_cube(pb, 'mass_fraction_of_cloud_ice_in_air')
     liq_mass_frac = iris.load_cube(pb, 'mass_fraction_of_cloud_liquid_water_in_air')
     c = iris.load(pb)# IWP and LWP dont load properly
@@ -143,10 +117,10 @@ def load_model(var, times): #times should be a range in the format 11,21
 
 # Load models in for times of interest: (59, 68) for time of flight, (47, 95) for midday-midnight (discard first 12 hours as spin-up)
 #HM_vars = load_model('Hallett_Mossop', (11,21))
-RA1M_mod_vars = load_model('RA1M_mod_24',(59,68))
+#RA1M_mod_vars = load_model(config = 'RA1M_mods_lg_t', flight_date = '20110125T0000', times = (11,23))
 #RA1T_mod_vars = load_model('RA1T_mod_24',(59,68))
 #RA1T_vars = load_model('RA1T_24', (59,68)) # 1 hr means
-RA1M_vars = load_model('RA1M_24', (59,68))
+#RA1M_vars = load_model('RA1M_24', (59,68))
 #CASIM_vars = load_model('CASIM_24', (59,68))
 #DeMott_vars = load_model('DeMott', (59,68))
 #fl_av_vars = load_model('fl_av')
@@ -179,11 +153,12 @@ def print_stats():
 
 #print_stats()
 
-def load_obs():
+def load_obs(flight, flight_date):
+    ''' Inputs: flight number as a string, e.g. 'flight159' and flight_date as a string, with date only (not time) in YYYMMDD format, e.g. '20110125' '''
     ## ----------------------------------------------- SET UP VARIABLES --------------------------------------------------##
     ## Load core data
     print('\nYes yes cuzzy, pretty soon you\'re gonna have some nice core data...')
-    bsl_path_core = '/data/mac/ellgil82/cloud_data/Constantino_Oasis_Peninsula/flight152/core_masin_20110118_r001_flight152_1hz.nc'
+    bsl_path_core = '/data/mac/ellgil82/cloud_data/core_data/core_masin_'+flight_date+'_r001_'+flight+'_50hz.nc'
     cubes = iris.load(bsl_path_core)
     RH = iris.load_cube(bsl_path_core, 'relative_humidity')
     core_temp = cubes[34] #de-iced temperature
@@ -201,11 +176,11 @@ def load_obs():
     # Load CIP from .npz
     print('\nOi mate, right now I\'m loading some siiiiick CIP data...')
     path = '/data/mac/ellgil82/cloud_data/Constantino_Oasis_Peninsula/'
-    s_file = 'flight152_s_v2.npz'
+    s_file = flight+'_s_v2.npz'
     npz_s=np.load(path+s_file)
-    m_file = 'flight152_m_v2.npz'
+    m_file = flight+'_m_v2.npz'
     npz_m = np.load(path + m_file)
-    n_file = 'flight152_n_v2.npz'
+    n_file = flight+'_n_v2.npz'
     npz_n = np.load(path + n_file)
     CIP_time = npz_m['time']
     CIP_bound = npz_s['TestPlot_all_y']
@@ -214,7 +189,7 @@ def load_obs():
     S_LI = npz_m['TestPlot_LI_y']+npz_m['TestPlot_S_y']
     n_drop_CIP = npz_n['TestPlot_LI_y']+npz_n['TestPlot_S_y']
     # Load CAS data
-    CAS_file = '/data/mac/ellgil82/cloud_data/netcdfs/flight152_cas.nc'
+    CAS_file = '/data/mac/ellgil82/cloud_data/netcdfs/'+flight+'_cas.nc'
     # Create variables
     print ('\nOn dis CAS ting...')
     LWC_cas = iris.load_cube(CAS_file, 'liquid water content calculated from CAS ')
@@ -328,6 +303,8 @@ def load_obs():
     n_ice_profile = np.append([0,0,0], n_ice_profile)
     return IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_liq, drop_profile, drop_array, nconc_ice, box_IWC, box_LWC, box_nconc_ice, box_nconc_liq, n_ice_profile
 
+IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_liq, drop_profile, drop_array, nconc_ice, box_IWC, box_LWC, box_nconc_ice, box_nconc_liq, n_ice_profile = load_obs(flight = 'flight159', flight_date = '20110125')
+
 #mean_QCF, mean_QCL, altitude, liq_5, liq_95, max_QCF, max_QCL, min_QCF, min_QCL, ice_5, ice_95, AWS14_mean_QCF, AWS14_mean_QCL, AWS15_mean_QCF, AWS15_mean_QCL, real_lon, real_lat = load_model('CASIM_ctrl')
 
 ## ================================================= PLOTTING ======================================================= ##
@@ -350,7 +327,7 @@ def draw_screen_poly( lats, lons, m):
 def obs_mod_profile(run):
     fig, ax = plt.subplots(1,2, figsize=(16, 9))
     ax = ax.flatten()
-    IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_liq, drop_profile, drop_array, nconc_ice, box_IWC, box_LWC, box_nconc_ice, box_nconc_liq, n_ice_profile = load_obs()
+    IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_liq, drop_profile, drop_array, nconc_ice, box_IWC, box_LWC, box_nconc_ice, box_nconc_liq, n_ice_profile = load_obs(flight = 'flight159', date = '20110125')
     for axs in ax:
         axs.spines['top'].set_visible(False)
         axs.spines['right'].set_visible(False)
