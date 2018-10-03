@@ -42,25 +42,37 @@ def load_mp(var):
     os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
     print('\nice mass fraction')
     # Load only last 12 hours of forecast (i.e. t+12 to t+24, discarding preceding 12 hours as spin-up) for bottom 40 levels, and perform unit conversion from kg kg-1 to g kg-
-    ice_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_ice_in_air',
+    try:
+        ice_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_ice_in_air',
                                                   model_level_number=lambda cell: cell < 40,
                                                   forecast_period=lambda cell: cell >= 12.5))
+    except iris.exceptions.ConstraintMismatchError:
+        print('\n QCF not in this file')
     print('\nliquid mass fraction')
-    liq_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_liquid_in_air',
+    try:
+        liq_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_liquid_water_in_air',
                                                   model_level_number=lambda cell: cell < 40,
                                                   forecast_period=lambda cell: cell >= 12.5))
+    except iris.exceptions.ConstraintMismatchError:
+        print('\n QCL not in this file')
     print('\nice water path') # as above, and convert from kg m-2 to g m-2
-    IWP = iris.load(pb, iris.AttributeConstraint(STASH='m01s02i392') & iris.Constraint(forecast_period=lambda cell: cell >= 12.5))# stash code s02i392
+    try:
+        IWP = iris.load(pb, iris.AttributeConstraint(STASH='m01s02i392') & iris.Constraint(forecast_period=lambda cell: cell >= 12.5))# stash code s02i392
+    except iris.exceptions.ConstraintMismatchError:
+        print('\n IWP not in this file')
     print('\nliquid water path')
-    LWP = iris.load(pb, iris.AttributeConstraint(STASH='m01s02i391') & iris.Constraint(forecast_period=lambda cell: cell >= 12.5))
-    LWP.convert_units('g m-2')
+    try:
+        LWP = iris.load(pb, iris.AttributeConstraint(STASH='m01s02i391') & iris.Constraint(forecast_period=lambda cell: cell >= 12.5))
+    except iris.exceptions.ConstraintMismatchError:
+        print('\n LWP not in this file')
     lsm, orog = iris.load_cubes('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/20110118T0000Z_Peninsula_1p5km_RA1M_mods_lg_t_pa000.pp', ['land_binary_mask','surface_altitude'] )
     for i in [ice_mass_frac, liq_mass_frac]:#, qc]:
         real_lon, real_lat = rotate_data(i, 3, 4)
         i.convert_units('g kg-1')
-    for j in [LWP, IWP,]: #cl_A
-        real_lon, real_lat = rotate_data(j, 2, 3) # time vars don't load in properly = forecast time + real time
-        j.convert_units('g m-2')
+    if ['IWP', 'LWP'] in locals():
+        for j in [LWP, IWP,]: #cl_A
+            real_lon, real_lat = rotate_data(j, 2, 3) # time vars don't load in properly = forecast time + real time
+            j.convert_units('g m-2')
     for k in [lsm, orog]:
         real_lon, real_lat = rotate_data(k, 0, 1)
     # Convert times to useful ones
@@ -76,8 +88,8 @@ def load_mp(var):
     print('\ncreating vertical profiles geez...')
     box_QCF = ice_mass_frac[:, :, :, 133:207, 188:213].data
     box_QCL = liq_mass_frac[:, :, :, 133:207, 188:213].data
-    box_mean_IWP = np.mean(IWP[:, :, 133:207, 188:213].data, axis = (0,1,2))
-    box_mean_LWP = np.mean(LWP[:, :, 133:207, 188:213].data, axis =(0,1,2))
+    box_mean_IWP = np.mean(IWP[:, :, 133:207, 188:213].data, axis = (0,2,3))
+    box_mean_LWP = np.mean(LWP[:, :, 133:207, 188:213].data, axis =(0, 2,3))
     mean_QCF = np.mean(box_QCF, axis=(0,1,3,4))
     mean_QCL = np.mean(box_QCL, axis=(0,1,3,4)) #0,2,3
     AWS14_mean_QCF = np.mean(ice_mass_frac[:, :,40, 199:201, 199:201].data, axis=(0, 1, 3,4))
@@ -109,8 +121,8 @@ def load_mp(var):
     #        for each_time in np.arange(len(ice_mass_frac.coord('time').points)):
     #            m = pd.DataFrame(box_QCL[each_time, :, each_lat, each_lon])
     #            array = pd.concat([m, array], axis=1)
-    #max_QCL = array.max(axis=1)
-    #min_QCL = array.min(axis=1)
+        #max_QCL = array.max(axis=1)
+        #min_QCL = array.min(axis=1)
     # Calculate 95th percentile
     #liq_95 = np.percentile(array, 95, axis=1)
     #liq_5 = np.percentile(array, 5, axis=1)
