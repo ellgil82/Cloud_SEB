@@ -235,16 +235,16 @@ def load_obs():
     # Separate into outward and return legs
     IWC_leg1 = grouped_ice['IWC'][:70]# outward
     IWC_leg2 = grouped_ice['IWC'][70:]
-    LWC_leg1 = grouped_liq['LWC'][:70] # outward leg
-    LWC_leg2 = grouped_liq['LWC'][70:]
+    LWC_leg1 = grouped_liq['LWC'][:520] # outward leg
+    LWC_leg2 = grouped_liq['LWC'][520:]
     nice_leg1 = grouped_ice['n_ice'][:70]
     nice_leg2 = grouped_ice['n_ice'][70:]
-    drop_leg1 = grouped_liq['n_drop'][:70]
-    drop_leg2 = grouped_liq['n_drop'][70:]
+    drop_leg1 = grouped_liq['n_drop'][:520]
+    drop_leg2 = grouped_liq['n_drop'][520:]
     ice_lons_leg1 = grouped_ice[:70]['lons']
     ice_lons_leg2 = grouped_ice[70:]['lons']
-    liq_lons_leg1 = grouped_liq[:70]['lons']
-    liq_lons_leg2 = grouped_liq[70:]['lons']
+    liq_lons_leg1 = grouped_liq[:520]['lons']
+    liq_lons_leg2 = grouped_liq[520:]['lons']
     # Calculate means of non-zero points for each variable for the transects
     IWC_transect1 = grouped_ice[:70].groupby(['lon_idx']).mean()['IWC'] #25, 31,32, 35, 59, 60
     LWC_transect1 = grouped_liq[:520].groupby(['lon_idx']).mean()['LWC']
@@ -423,14 +423,17 @@ def mfrac_transect():
     plt.setp(ax3.spines.values(), linewidth=3, color='dimgrey')
     plt.setp(ax2.spines.values(), linewidth=3, color='dimgrey')
     ax2.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-    #[l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
-    #[l.set_visible(False) for (w, l) in enumerate(ax2.yaxis.get_ticklabels()) if w % 2 != 0]
+    [l.set_visible(False) for (w, l) in enumerate(ax2.xaxis.get_ticklabels()) if w % 2 != 0]
     #mean_IWC = ax.plot(lon_bins, IWC_transect2, linewidth = 2, color = '#7570b3', label = 'Mean ice')
     mean_LWC = ax2.plot(lon_bins, LWC_transect1, linewidth = 2, color = '#1b9e77', label = 'Mean liquid')
     scatter_LWC = ax3.scatter(liq_lons_leg1, LWC_leg1, marker = 's', color = '#1b9e77', label = 'All liquid', alpha=0.65)
-    model_LWC = ax2.plot(lon_bins, RA1M_mod_vars['QCL_transect'], lw = 2, color = '#fb9a99', label = 'Modelled liquid')
-    ax2.axhline(y = np.mean(LWC_transect1), linestyle = '--', lw = 1, label = 'Mean observed liquid')
+    RA1M_LWC = ax2.plot(lon_bins, RA1M_mod_vars['QCL_transect'], lw = 2, color='#1f78b4', label = 'RA1M_mod')
+    DeMott_LWC = ax2.plot(lon_bins, DeMott_vars['QCL_transect'], lw=2, color='#EA580F', label='DeMott')
+    Cooper_LWC = ax2.plot(lon_bins, Cooper_vars['QCL_transect'], lw=2, color='#5D13E8', label='Cooper')
+    ax2.axhline(y = np.mean(LWC_transect1), linestyle = '--', lw = 2, label = 'Mean observed liquid')
     ax2.fill_between(lon_bins, RA1M_mod_vars['liq_5'], RA1M_mod_vars['liq_95'], facecolor='#fb9a99', alpha = 0.5)
+    ax2.fill_between(lon_bins, Cooper_vars['liq_5'], Cooper_vars['liq_95'], facecolor='#EA580F', alpha=0.5)
+    ax2.fill_between(lon_bins, DeMott_vars['liq_5'], DeMott_vars['liq_95'], facecolor='#5D13E8', alpha=0.5)
     #scatter_IWC = ax4.scatter(lons_leg2, IWC_leg2, marker = 'o', color = '#7570b3', label = 'All ice')
     ax2.set_xlim(np.min(lon_bins), np.max(lon_bins))
     ax3.set_xlim(np.min(lon_bins), np.max(lon_bins))
@@ -447,11 +450,10 @@ def mfrac_transect():
     ax2.set_ylabel('Liquid mass \nfraction \n(g kg$^{-1}$)', rotation = 0, fontname='SegoeUI semibold', color = 'dimgrey', fontsize = 28, labelpad = 10)
     #ax.set_ylabel('Ice mass \nfraction \n(g kg$^{-1}$)', rotation = 0, fontname='SegoeUI semibold', color = 'dimgrey', fontsize = 28, labelpad = 10)
     ax2.set_xlabel('Longitude', fontname='SegoeUI semibold', fontsize = 28, color = 'dimgrey', labelpad = 10)
-    ax2.yaxis.set_label_coords(1.22, 0.6)
-    #ax.yaxis.set_label_coords(-0.15, 0.4)
+    ax2.yaxis.set_label_coords(-0.2, 0.4)
     ax3.xaxis.set_visible(False)
-    plt.subplots_adjust(bottom = 0.15, right= 0.73, left = 0.15)
-    lgd = plt.legend()#[mean_IWC[0], mean_LWC[0], scatter_IWC, scatter_LWC], ['Mean ice', 'Mean droplets', 'All ice', 'All droplets'], markerscale=2, bbox_to_anchor = (1.47, 1.1), loc='best', fontsize=24)
+    plt.subplots_adjust(bottom = 0.15, right= 0.85, left = 0.2)
+    lgd = plt.legend([scatter_LWC, mean_LWC[0],  RA1M_LWC[0], DeMott_LWC[0], Cooper_LWC[0]], ['All observed liquid', 'Mean observed liquid', 'RA1M_mod', 'DeMott', 'Cooper'], markerscale=2, bbox_to_anchor = (1.25, 1.1), loc='best', fontsize=20)
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey')
         lgd.get_frame().set_linewidth(0.0)
