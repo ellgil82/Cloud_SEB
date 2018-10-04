@@ -65,7 +65,7 @@ def load_mp(var):
         LWP = iris.load(pb, iris.AttributeConstraint(STASH='m01s02i391') & iris.Constraint(forecast_period=lambda cell: cell >= 12.5))
     except iris.exceptions.ConstraintMismatchError:
         print('\n LWP not in this file')
-    lsm, orog = iris.load_cubes('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/20110118T0000Z_Peninsula_1p5km_RA1M_mods_lg_t_pa000.pp', ['land_binary_mask','surface_altitude'] )
+    lsm, orog = iris.load_cubes(pa, ['land_binary_mask','surface_altitude'] )
     for i in [ice_mass_frac, liq_mass_frac]:#, qc]:
         real_lon, real_lat = rotate_data(i, 3, 4)
         i.convert_units('g kg-1')

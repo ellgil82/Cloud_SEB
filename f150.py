@@ -91,8 +91,8 @@ RA1M_mod_vars = load_model(config = 'RA1M_mods_f150', flight_date = '20110115T12
 #RA1T_mod_vars = load_model('RA1T_mod_24',(59,68))
 #RA1T_vars = load_model('RA1T_24', (59,68)) # 1 hr means
 #RA1M_vars = load_model('RA1M_24', (59,68))
-#CASIM_vars = load_model('CASIM_24', (59,68))
-DeMott_vars = load_model(config = 'DeMott', flight_date = '20110116T0000',  times = (59,68))
+Cooper_vars = load_model(config = 'Cooper', flight_date = '20110115T0000', times = (59,68))
+DeMott_vars = load_model(config = 'DeMott', flight_date = '20110115T0000',  times = (59,68))
 #fl_av_vars = load_model('fl_av')
 #model_runs = [RA1M_vars, RA1M_mod_vars,RA1T_vars, RA1T_mod_vars]#, CASIM_vars fl_av_vars, ]
 
