@@ -68,36 +68,20 @@ def load_model(config, flight_date, times): #times should be a range in the form
     QCL_transect = np.mean(liq_mass_frac[:, :, 127:137, 130:185 ].data, axis=(0, 1, 2))
     IWP_transect = np.mean(IWP[:, 127:137, 130:185 ].data, axis = (0,1))
     LWP_transect = np.mean(LWP[:, 127:137, 130:185  ].data, axis = (0,1))
-    # Find max and min values at each model level
-    array = pd.DataFrame()
-    for each_lat in np.arange(10):
-        for each_lev in np.arange(40):
-            for each_time in np.arange(times[1]-times[0]):
-                m = pd.DataFrame(transect_box_QCF[each_time, each_lev, each_lat, :])
-                array = pd.concat([m, array], axis=1)
-        max_QCF = array.max(axis=1)
-        min_QCF = array.min(axis=1)
-    # Calculate 5th and 95th percentile
-    ice_95 = np.percentile(array, 95, axis=1)
-    ice_5 = np.percentile(array, 5, axis=1)
-    # Find max and min values at each model level
-    array = pd.DataFrame()
-    for each_lat in np.arange(10):
-        for each_lon in np.arange(40):
-            for each_time in np.arange(times[1]-times[0]):
-                m = pd.DataFrame(transect_box_QCL[each_time, each_lev, each_lat, :])
-                array = pd.concat([m, array], axis=1)
-        max_QCL = array.max(axis=1)
-        min_QCL = array.min(axis=1)
-    # Calculate 5th and 95th percentile
-    liq_95 = np.percentile(array, 95, axis=1)
-    liq_5 = np.percentile(array, 5, axis=1)
-        # Calculate PDF of ice and liquid water contents
-        #liq_PDF = mean_liq.plot.density(color = 'k', linewidth = 1.5)
-        #ice_PDF = mean_ice.plot.density(linestyle = '--', linewidth=1.5, color='k')
+    QCL_profile = np.mean(ice_mass_frac[:,:,127:137, 130:185].data, axis = (0,2,3))
+    # Calculate 5th and 95th percentiles for each longitude bin, and for vertical profile
+    ice_95 = np.percentile(box_QCF, 95, axis=(0,1,2))
+    ice_5 = np.percentile(box_QCF, 5, axis=(0,1,2))
+    liq_95 = np.percentile(box_QCL, 95, axis=(0,1,2))
+    liq_5 = np.percentile(box_QCL, 5, axis=(0,1,2))
+    vert_95 = np.percentile(box_QCL, 95, axis=(0,2,3))
+    vert_5 = np.percentile(box_QCL, 5, axis=(0, 2, 3))
+    # Calculate PDF of ice and liquid water contents
+    #liq_PDF = mean_liq.plot.density(color = 'k', linewidth = 1.5)
+    #ice_PDF = mean_ice.plot.density(linestyle = '--', linewidth=1.5, color='k')
     var_dict = {'real_lon': real_lon, 'real_lat':real_lat,   'lsm': lsm, 'orog': orog,  'IWP': IWP, 'LWP':LWP, 'ice_5': ice_5,
-                'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'min_QCF': min_QCF,'max_QCF': max_QCF, 'min_QCL': min_QCL,
-                'box_QCF': box_QCF, 'box_QCL': box_QCL, 'LWP_transect': LWP_transect,'IWP_transect': IWP_transect,
+                'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'box_QCF': box_QCF, 'box_QCL': box_QCL, 'vert_5': vert_5,
+                 'vert_95': vert_95, 'LWP_transect': LWP_transect,'IWP_transect': IWP_transect, 'QCL_profile': QCL_profile,
                 'QCF_transect': QCF_transect, 'QCL_transect': QCL_transect, 'QCF': ice_mass_frac, 'QCL': liq_mass_frac}
     return  var_dict
 
@@ -114,7 +98,7 @@ DeMott_vars = load_model(config = 'DeMott', flight_date = '20110116T0000',  time
 
 def load_obs():
     ## ----------------------------------------------- SET UP VARIABLES --------------------------------------------------##
-## Load core data
+    ## Load core data
     print('\nYes yes cuzzy, pretty soon you\'re gonna have some nice core data...')
     bsl_path_core = '/data/mac/ellgil82/cloud_data/core_data/core_masin_20110115_r001_flight150_50hz.nc'
     cubes = iris.load(bsl_path_core)
@@ -230,56 +214,66 @@ def load_obs():
             LWC_array.append(LWC_cas[i])
             alt_array_liq.append(plane_alt[i])
             lon_array_liq.append(plane_lon[i])
+    ## Create longitudinal transects
     # Calculate mean values at each height in the model
     # Create bins from model data
     print('\nbinning by altitude...')
-    #Load model data to get altitude bins
+    #Load model data to get altitude/longitude bins
     lon_bins = RA1M_mod_vars['QCF'].coord('longitude')[130:185].points.tolist()
-    #lon_bins = np.linspace(min(lon_array_liq), np.around(max(lon_array_liq),decimals=3), num = 56)[:-1]
-    # Find index of model level bin to which aircraft data would belong
+    alt_bins = RA1M_mod_vars['QCF'].coord('level_height').points.tolist()
+    # Find index of model longitude bin to which aircraft data would belong
     # Turn data into pandas dataframe
-    d_liq = { 'LWC': LWC_array, 'lon_idx': np.digitize(lon_array_liq, bins=lon_bins), 'lons': lon_array_liq,  'n_drop': drop_array}
+    d_liq = {'LWC': LWC_array, 'lon_idx': np.digitize(lon_array_liq, bins=lon_bins), 'alt_idx': np.digitize(alt_array_liq, bins=alt_bins), 'alt': alt_array_liq, 'lons': lon_array_liq,  'n_drop': drop_array}
     d_ice = {'IWC': IWC_array,'n_ice': nconc_ice, 'lon_idx': np.digitize(lon_array_ice, bins=lon_bins), 'lons': lon_array_ice, }
     df_liq = pd.DataFrame(data = d_liq)
     df_ice = pd.DataFrame(data= d_ice)
-    print('\ncreating observed profiles...')
+    print('\ncreating observed transects...')
     # Use groupby to group by longitude index and mean over the groups
     grouped_liq = df_liq.set_index(['lon_idx'])
     grouped_ice = df_ice.set_index(['lon_idx'])
     # Calculate ice water contents and means only when ice is present
     # Separate into outward and return legs
-    IWC_leg1 = grouped_ice['IWC'][:1265]# outward
-    IWC_leg2 = grouped_ice['IWC'][1270:]
-    LWC_leg1 = grouped_liq['LWC'][:1265] # outward leg
-    LWC_leg2 = grouped_liq['LWC'][1270:]
-    nice_leg1 = grouped_ice['n_ice'][:1265]
-    nice_leg2 = grouped_ice['n_ice'][1270:]
-    drop_leg1 = grouped_liq['n_drop'][:1265]
-    drop_leg2 = grouped_liq['n_drop'][1270:]
-    ice_lons_leg1 = grouped_ice[:1265]['lons']
-    ice_lons_leg2 = grouped_ice[1270:]['lons']
-    liq_lons_leg1 = grouped_liq[:1265]['lons']
-    liq_lons_leg2 = grouped_liq[1270:]['lons']
+    IWC_leg1 = grouped_ice['IWC'][:70]# outward
+    IWC_leg2 = grouped_ice['IWC'][70:]
+    LWC_leg1 = grouped_liq['LWC'][:70] # outward leg
+    LWC_leg2 = grouped_liq['LWC'][70:]
+    nice_leg1 = grouped_ice['n_ice'][:70]
+    nice_leg2 = grouped_ice['n_ice'][70:]
+    drop_leg1 = grouped_liq['n_drop'][:70]
+    drop_leg2 = grouped_liq['n_drop'][70:]
+    ice_lons_leg1 = grouped_ice[:70]['lons']
+    ice_lons_leg2 = grouped_ice[70:]['lons']
+    liq_lons_leg1 = grouped_liq[:70]['lons']
+    liq_lons_leg2 = grouped_liq[70:]['lons']
     # Calculate means of non-zero points for each variable for the transects
-    IWC_transect1 = grouped_ice[:1265].groupby(['lon_idx']).sum()['IWC']/len(grouped_ice[:1265]) #25, 31,32, 35, 59, 60
-    LWC_transect1 = grouped_liq[:1265].groupby(['lon_idx']).mean()['LWC']
-    ice_transect1 = grouped_ice[:1265].groupby(['lon_idx']).sum()['n_ice']/len(grouped_ice[:1265])
-    drop_transect1 = grouped_liq[:1265].groupby(['lon_idx']).mean()['n_drop']
-    IWC_transect2 = grouped_ice[1270:].groupby(['lon_idx']).sum()['IWC']/len(grouped_ice[1270:]) #25, 31,32, 35, 59, 60
-    LWC_transect2 = grouped_liq[1270:].groupby(['lon_idx']).mean()['LWC']
-    ice_transect2 = grouped_ice[1270:].groupby(['lon_idx']).sum()['n_ice']/len(grouped_ice[1270:])
-    drop_transect2 = grouped_liq[1270:].groupby(['lon_idx']).mean()['n_drop']
+    IWC_transect1 = grouped_ice[:70].groupby(['lon_idx']).mean()['IWC'] #25, 31,32, 35, 59, 60
+    LWC_transect1 = grouped_liq[:520].groupby(['lon_idx']).mean()['LWC']
+    ice_transect1 = grouped_ice[:70].groupby(['lon_idx']).mean()['n_ice']
+    drop_transect1 = grouped_liq[:520].groupby(['lon_idx']).mean()['n_drop']
+    IWC_transect2 = grouped_ice[70:].groupby(['lon_idx']).mean()['IWC'] #25, 31,32, 35, 59, 60
+    LWC_transect2 = grouped_liq[520:].groupby(['lon_idx']).mean()['LWC']
+    ice_transect2 = grouped_ice[70:].groupby(['lon_idx']).mean()['n_ice']
+    drop_transect2 = grouped_liq[520:].groupby(['lon_idx']).mean()['n_drop']
         # Add in some zeros at correct place to make mean transect the right shape for plotting
-    LWC_transect1 = np.append(np.zeros(10), LWC_transect1) # [24, 30,31,34], [0])
-    drop_transect1 = np.append(np.zeros(10), drop_transect1)
-    #IWC_transect = np.append(IWC_transect, [0,0])
-    #ice_transect = np.insert(ice_transect, [24, 30,31,34], [0])
-    #ice_transect = np.append(ice_transect, [0,0])
+    def append_1(transect):
+        transect = np.append(np.zeros(9), transect)
+        transect = np.append(transect, np.zeros(10))# [24, 30,31,34], [0])
+        transect = np.insert(transect,[25],[0,0,0,0])
+        transect = np.insert(transect, [31], [0,0,0,0,0,0,0])
+        return transect
+    LWC_transect2, drop_transect2 = np.append(LWC_transect2, np.zeros(9)), np.append(drop_transect2, np.zeros(9))
+    LWC_transect1, drop_transect1 = append_1(LWC_transect1), append_1(drop_transect1)
+    ## Create vertical profiles
+    grouped_liq = df_liq.set_index(['alt_idx'])
+    LWC_profile = grouped_liq[:520].groupby(['alt_idx']).mean()['LWC']
+    LWC_profile = np.append(np.zeros(10), LWC_profile)
+    LWC_profile = np.insert(LWC_profile, [21], [0,0,0,0,0])
     return aer, IWC_array, LWC_array, lon_bins, IWC_transect1, LWC_transect1, drop_transect1, \
            ice_transect1, nice_leg1, drop_leg1, ice_lons_leg1, ice_lons_leg2, IWC_leg1, LWC_leg1, IWC_transect2, \
-           LWC_transect2, drop_transect2, ice_transect2, nice_leg2, drop_leg2,liq_lons_leg1, liq_lons_leg2, IWC_leg2, LWC_leg2
+           LWC_transect2, drop_transect2, ice_transect2, nice_leg2, drop_leg2,liq_lons_leg1, liq_lons_leg2, IWC_leg2, LWC_leg2, LWC_profile
 
-aer, IWC_array, LWC_array,lon_bins, IWC_transect1, LWC_transect1, drop_transect1, ice_transect1, nice_leg1, drop_leg1, ice_lons_leg1, ice_lons_leg2, IWC_leg1, LWC_leg1, IWC_transect2, LWC_transect2, drop_transect2, ice_transect2, nice_leg2, drop_leg2,liq_lons_leg1, liq_lons_leg2, IWC_leg2, LWC_leg2 = load_obs()
+aer, IWC_array, LWC_array,lon_bins, IWC_transect1, LWC_transect1, drop_transect1, ice_transect1, nice_leg1, drop_leg1, ice_lons_leg1, ice_lons_leg2, IWC_leg1, \
+LWC_leg1, IWC_transect2, LWC_transect2, drop_transect2, ice_transect2, nice_leg2, drop_leg2,liq_lons_leg1, liq_lons_leg2, IWC_leg2, LWC_leg2, LWC_profile = load_obs()
 
 
 print 'Drop array means:\n\n Leg 1:'
@@ -421,60 +415,48 @@ nconc_transect()
 
 def mfrac_transect():
     fig = plt.figure(figsize=(18, 7))
-    ax = fig.add_subplot(111)
-    ax2 = plt.twinx(ax)
+    ax2 = fig.add_subplot(111)
     ax3 = plt.twiny(ax2)
-    ax4 = plt.twiny(ax)
-    ax4.axis('off')
     ax3.axis('off')
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
     ax2.spines['top'].set_visible(False)
-    plt.setp(ax.spines.values(), linewidth=3, color='dimgrey')
+    ax2.spines['right'].set_visible(False)
+    plt.setp(ax3.spines.values(), linewidth=3, color='dimgrey')
     plt.setp(ax2.spines.values(), linewidth=3, color='dimgrey')
-    ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+    ax2.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
     #[l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
     #[l.set_visible(False) for (w, l) in enumerate(ax2.yaxis.get_ticklabels()) if w % 2 != 0]
-    mean_IWC = ax.plot(lon_bins, IWC_transect2, linewidth = 2, color = '#7570b3', label = 'Mean ice')
-    mean_LWC = ax2.plot(lon_bins, LWC_transect2, linewidth = 2, color = '#1b9e77', label = 'Mean liquid')
-    scatter_LWC = ax3.scatter(lons_leg2, LWC_leg2, marker = 's', color = '#1b9e77', label = 'All liquid', alpha=0.65)
-    scatter_IWC = ax4.scatter(lons_leg2, IWC_leg2, marker = 'o', color = '#7570b3', label = 'All ice')
-    ax.set_xlim(np.min(lon_bins), np.max(lon_bins))
+    #mean_IWC = ax.plot(lon_bins, IWC_transect2, linewidth = 2, color = '#7570b3', label = 'Mean ice')
+    mean_LWC = ax2.plot(lon_bins, LWC_transect1, linewidth = 2, color = '#1b9e77', label = 'Mean liquid')
+    scatter_LWC = ax3.scatter(liq_lons_leg1, LWC_leg1, marker = 's', color = '#1b9e77', label = 'All liquid', alpha=0.65)
+    model_LWC = ax2.plot(lon_bins, RA1M_mod_vars['QCL_transect'], lw = 2, color = '#fb9a99', label = 'Modelled liquid')
+    ax2.axhline(y = np.mean(LWC_transect1), linestyle = '--', lw = 1, label = 'Mean observed liquid')
+    ax2.fill_between(lon_bins, RA1M_mod_vars['liq_5'], RA1M_mod_vars['liq_95'], facecolor='#fb9a99', alpha = 0.5)
+    #scatter_IWC = ax4.scatter(lons_leg2, IWC_leg2, marker = 'o', color = '#7570b3', label = 'All ice')
     ax2.set_xlim(np.min(lon_bins), np.max(lon_bins))
     ax3.set_xlim(np.min(lon_bins), np.max(lon_bins))
-    ax4.set_xlim(np.min(lon_bins), np.max(lon_bins))
-    ax.set_ylim(0, 0.0005)
-    ax4.set_ylim(0, 0.0005)
-    ax2.set_ylim(0,0.2)
-    ax3.set_ylim(0,0.2)
-    ax.yaxis.set_major_formatter(FormatStrFormatter('%.1g'))
+    ax2.set_ylim(0,0.1)
+    ax3.set_ylim(0,0.1)
     ax2.yaxis.set_major_formatter(FormatStrFormatter('%.1g'))
     ax3.yaxis.set_major_formatter(FormatStrFormatter('%.1g'))
-    ax4.yaxis.set_major_formatter(FormatStrFormatter('%.1g'))
-    ax.yaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))
-    ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 2))
-    ax.yaxis.get_offset_text().set_fontsize(24)
     ax2.yaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))
     ax2.ticklabel_format(style='sci', axis='y', scilimits=(0, 2))
     ax2.yaxis.get_offset_text().set_fontsize(24)
     ax2.yaxis.get_offset_text().set_color('dimgrey')
-    ax.yaxis.get_offset_text().set_color('dimgrey')
     #plt.setp(ax.get_yticklabels()[-2], visible=False)
     ax2.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
     ax2.set_ylabel('Liquid mass \nfraction \n(g kg$^{-1}$)', rotation = 0, fontname='SegoeUI semibold', color = 'dimgrey', fontsize = 28, labelpad = 10)
-    ax.set_ylabel('Ice mass \nfraction \n(g kg$^{-1}$)', rotation = 0, fontname='SegoeUI semibold', color = 'dimgrey', fontsize = 28, labelpad = 10)
-    ax.set_xlabel('Longitude', fontname='SegoeUI semibold', fontsize = 28, color = 'dimgrey', labelpad = 10)
+    #ax.set_ylabel('Ice mass \nfraction \n(g kg$^{-1}$)', rotation = 0, fontname='SegoeUI semibold', color = 'dimgrey', fontsize = 28, labelpad = 10)
+    ax2.set_xlabel('Longitude', fontname='SegoeUI semibold', fontsize = 28, color = 'dimgrey', labelpad = 10)
     ax2.yaxis.set_label_coords(1.22, 0.6)
-    ax.yaxis.set_label_coords(-0.15, 0.4)
+    #ax.yaxis.set_label_coords(-0.15, 0.4)
     ax3.xaxis.set_visible(False)
-    ax4.xaxis.set_visible(False)
     plt.subplots_adjust(bottom = 0.15, right= 0.73, left = 0.15)
-    lgd = plt.legend([mean_IWC[0], mean_LWC[0], scatter_IWC, scatter_LWC], ['Mean ice', 'Mean droplets', 'All ice', 'All droplets'], markerscale=2, bbox_to_anchor = (1.47, 1.1), loc='best', fontsize=24)
+    lgd = plt.legend()#[mean_IWC[0], mean_LWC[0], scatter_IWC, scatter_LWC], ['Mean ice', 'Mean droplets', 'All ice', 'All droplets'], markerscale=2, bbox_to_anchor = (1.47, 1.1), loc='best', fontsize=24)
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey')
         lgd.get_frame().set_linewidth(0.0)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f150/mfrac_transect_leg2_ice_liquid.eps', transparent = True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f150/mfrac_transect_leg2_ice_liquid.png', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f150/mfrac_transect_leg1_liquid.eps', transparent = True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f150/mfrac_transect_leg1_liquid.png', transparent=True)
     plt.show()
 
 mfrac_transect()

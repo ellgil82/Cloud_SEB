@@ -69,10 +69,9 @@ def load_mp(var):
     for i in [ice_mass_frac, liq_mass_frac]:#, qc]:
         real_lon, real_lat = rotate_data(i, 3, 4)
         i.convert_units('g kg-1')
-    if ['IWP', 'LWP'] in locals():
-        for j in [LWP, IWP,]: #cl_A
-            real_lon, real_lat = rotate_data(j, 2, 3) # time vars don't load in properly = forecast time + real time
-            j.convert_units('g m-2')
+    for j in [LWP, IWP,]: #cl_A
+        real_lon, real_lat = rotate_data(j, 2, 3) # time vars don't load in properly = forecast time + real time
+        j.convert_units('g m-2')
     for k in [lsm, orog]:
         real_lon, real_lat = rotate_data(k, 0, 1)
     # Convert times to useful ones
@@ -235,7 +234,7 @@ def load_met(var):
     return var_dict
 
 Jan_mp = load_mp('lg_t')
-Jan_met = load_met('lg_t')
+#Jan_met = load_met('lg_t')
 
 def print_stats():
     model_mean = pd.DataFrame()
@@ -649,7 +648,7 @@ def T_plot():
 
 #QCF_plot()
 #QCL_plot()
-T_plot()
+#T_plot()
 
 from itertools import chain
 import scipy
@@ -802,5 +801,7 @@ def IWP_time_srs():
     plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/vn11_water_path_time_srs_Jan_2011.eps')
     #plt.show()
 
-IWP_time_srs(), T_plot()
+IWP_time_srs(), QCF_plot(), QCL_plot()
+
+T_plot()
 
