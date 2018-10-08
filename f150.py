@@ -17,6 +17,7 @@ from matplotlib import rcParams
 def load_model(config, flight_date, times): #times should be a range in the format 11,21
     pa = []
     pb = []
+    pc = []
     pf = []
     print('\nimporting data from %(config)s...' % locals())
     for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/f150'):
@@ -24,6 +25,8 @@ def load_model(config, flight_date, times): #times should be a range in the form
                 pb.append(file)
             elif fnmatch.fnmatch(file, flight_date + '*%(config)s_pa*' % locals()):
                 pa.append(file)
+            elif fnmatch.fnmatch(file, flight_date + '*%(config)s_pc*' % locals()):
+                pc.append(file)
             elif fnmatch.fnmatch(file, flight_date) & fnmatch.fnmatch(file, '*%(config)s_pf*' % locals()):
                 pf.append(file)
     os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/f150/')
@@ -32,22 +35,41 @@ def load_model(config, flight_date, times): #times should be a range in the form
     c = iris.load(pb)# IWP and LWP dont load properly
     IWP = c[1] # stash code s02i392
     LWP = c[0] # stash code s02i391
-    #qc = c[3]
-    #cl_A = iris.load_cube(pb, 'cloud_area_fraction_assuming_maximum_random_overlap')
+    try:
+        ice_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_ice_in_air'))
+    except iris.exceptions.ConstraintMismatchError:
+        print('\n Can\'t find \"mass_fraction_of_cloud_ice_in_air\" in this file, searching STASH...\n')
+    else: ice_mass_frac = iris.load_cube(pb, iris.Constraint(STASH = 'm01s00i012'))
+    print('\nliquid mass fraction')
+    try:
+        liq_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_liquid_water_in_air',
+                                                  model_level_number=lambda cell: cell < 40,
+                                                  forecast_period=lambda cell: cell >= 12.5))
+    except iris.exceptions.ConstraintMismatchError:
+        print('\n Can\'t find \"mass_fraction_of_cloud_liquid_water_in_air\" in this file, searching STASH...\n')
+    else:
+        liq_mass_frac = iris.load_cube(pb, iris.Constraint(STASH='m01s00i254'))
+    print('\nice water path') # as above, and convert from kg m-2 to g m-2
+    try:
+        IWP = iris.load(pb, iris.AttributeConstraint(STASH='m01s02i392'))# stash code s02i392
+    except iris.exceptions.ConstraintMismatchError:
+        print('\n IWP not in this file')
+    print('\nliquid water path')
+    try:
+        LWP = iris.load(pb, iris.AttributeConstraint(STASH='m01s02i391'))
+    except iris.exceptions.ConstraintMismatchError:
+        print('\n LWP not in this file')
     lsm = iris.load_cube(pa, 'land_binary_mask')
     orog = iris.load_cube(pa, 'surface_altitude')
-    for i in [ice_mass_frac, liq_mass_frac]:#, qc]:
+    # Rotate data to ordinary lats/lons and convert units to g kg-1 and g m-2
+    for i in [ice_mass_frac, liq_mass_frac]:
         real_lon, real_lat = rotate_data(i, 2, 3)
+        i.convert_units('g kg-1')
     for j in [LWP, IWP,]: #cl_A
         real_lon, real_lat = rotate_data(j, 1, 2)
+        j.convert_units('g m-2')
     for k in [lsm, orog]:
         real_lon, real_lat = rotate_data(k, 0, 1)
-    # Convert model data to g kg-1
-    ice_mass_frac = ice_mass_frac * 1000
-    liq_mass_frac = liq_mass_frac * 1000
-    IWP = IWP * 1000 # convert to g m-2
-    LWP = LWP * 1000
-    #qc = qc * 1000
     # Convert times to useful ones
     for i in [IWP, LWP, ice_mass_frac, liq_mass_frac,]: #qc
         i.coord('time').convert_units('hours since 2011-01-18 00:00')
@@ -86,14 +108,9 @@ def load_model(config, flight_date, times): #times should be a range in the form
     return  var_dict
 
 # Load models in for times of interest: (59, 68) for time of flight, (47, 95) for midday-midnight (discard first 12 hours as spin-up)
-#HM_vars = load_model('Hallett_Mossop', (11,21))
-RA1M_mod_vars = load_model(config = 'RA1M_mods_f150', flight_date = '20110115T1200', times = (0,11))
-#RA1T_mod_vars = load_model('RA1T_mod_24',(59,68))
-#RA1T_vars = load_model('RA1T_24', (59,68)) # 1 hr means
-#RA1M_vars = load_model('RA1M_24', (59,68))
+#RA1M_mod_vars = load_model(config = 'RA1M_mods_f150', flight_date = '20110115T1200', times = (0,11))
 Cooper_vars = load_model(config = 'Cooper', flight_date = '20110115T0000', times = (59,68))
 DeMott_vars = load_model(config = 'DeMott', flight_date = '20110115T0000',  times = (59,68))
-#fl_av_vars = load_model('fl_av')
 #model_runs = [RA1M_vars, RA1M_mod_vars,RA1T_vars, RA1T_mod_vars]#, CASIM_vars fl_av_vars, ]
 
 def load_obs():
@@ -423,15 +440,15 @@ def mfrac_transect():
     plt.setp(ax3.spines.values(), linewidth=3, color='dimgrey')
     plt.setp(ax2.spines.values(), linewidth=3, color='dimgrey')
     ax2.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-    [l.set_visible(False) for (w, l) in enumerate(ax2.xaxis.get_ticklabels()) if w % 2 != 0]
+    [l.set_visible(False) for (w, l) in enumerate(ax2.yaxis.get_ticklabels()) if w % 2 != 0]
     #mean_IWC = ax.plot(lon_bins, IWC_transect2, linewidth = 2, color = '#7570b3', label = 'Mean ice')
     mean_LWC = ax2.plot(lon_bins, LWC_transect1, linewidth = 2, color = '#1b9e77', label = 'Mean liquid')
     scatter_LWC = ax3.scatter(liq_lons_leg1, LWC_leg1, marker = 's', color = '#1b9e77', label = 'All liquid', alpha=0.65)
     RA1M_LWC = ax2.plot(lon_bins, RA1M_mod_vars['QCL_transect'], lw = 2, color='#1f78b4', label = 'RA1M_mod')
     DeMott_LWC = ax2.plot(lon_bins, DeMott_vars['QCL_transect'], lw=2, color='#EA580F', label='DeMott')
     Cooper_LWC = ax2.plot(lon_bins, Cooper_vars['QCL_transect'], lw=2, color='#5D13E8', label='Cooper')
-    ax2.axhline(y = np.mean(LWC_transect1), linestyle = '--', lw = 2, label = 'Mean observed liquid')
-    ax2.fill_between(lon_bins, RA1M_mod_vars['liq_5'], RA1M_mod_vars['liq_95'], facecolor='#fb9a99', alpha = 0.5)
+    mean_obs = ax2.axhline(y = np.mean(LWC_transect1), linestyle = '--', color = '#222222', lw = 2, label = 'Observed transect mean')
+    ax2.fill_between(lon_bins, RA1M_mod_vars['liq_5'], RA1M_mod_vars['liq_95'], facecolor='#1f78b4', alpha = 0.5)
     ax2.fill_between(lon_bins, Cooper_vars['liq_5'], Cooper_vars['liq_95'], facecolor='#EA580F', alpha=0.5)
     ax2.fill_between(lon_bins, DeMott_vars['liq_5'], DeMott_vars['liq_95'], facecolor='#5D13E8', alpha=0.5)
     #scatter_IWC = ax4.scatter(lons_leg2, IWC_leg2, marker = 'o', color = '#7570b3', label = 'All ice')
@@ -439,10 +456,10 @@ def mfrac_transect():
     ax3.set_xlim(np.min(lon_bins), np.max(lon_bins))
     ax2.set_ylim(0,0.1)
     ax3.set_ylim(0,0.1)
-    ax2.yaxis.set_major_formatter(FormatStrFormatter('%.1g'))
-    ax3.yaxis.set_major_formatter(FormatStrFormatter('%.1g'))
+    ax2.yaxis.set_major_formatter(FormatStrFormatter('%.1d'))
+    ax3.yaxis.set_major_formatter(FormatStrFormatter('%.1d'))
     ax2.yaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))
-    ax2.ticklabel_format(style='sci', axis='y', scilimits=(0, 2))
+    ax2.ticklabel_format(style='sci', axis='y', scilimits=(0, 1))
     ax2.yaxis.get_offset_text().set_fontsize(24)
     ax2.yaxis.get_offset_text().set_color('dimgrey')
     #plt.setp(ax.get_yticklabels()[-2], visible=False)
@@ -452,13 +469,17 @@ def mfrac_transect():
     ax2.set_xlabel('Longitude', fontname='SegoeUI semibold', fontsize = 28, color = 'dimgrey', labelpad = 10)
     ax2.yaxis.set_label_coords(-0.2, 0.4)
     ax3.xaxis.set_visible(False)
+    ax2.set_xticks([-64, -63.5, -63, -62.5])
     plt.subplots_adjust(bottom = 0.15, right= 0.85, left = 0.2)
-    lgd = plt.legend([scatter_LWC, mean_LWC[0],  RA1M_LWC[0], DeMott_LWC[0], Cooper_LWC[0]], ['All observed liquid', 'Mean observed liquid', 'RA1M_mod', 'DeMott', 'Cooper'], markerscale=2, bbox_to_anchor = (1.25, 1.1), loc='best', fontsize=20)
+    #lgd = plt.legend([ mean_obs, RA1M_LWC[0], DeMott_LWC[0], Cooper_LWC[0]],
+    #                 [ 'Observed transect mean', 'RA1M_mod', 'DeMott',
+    #                  'Cooper'], markerscale=2, bbox_to_anchor=(1.25, 1.1), loc='best', fontsize=20)
+    lgd = plt.legend([scatter_LWC, mean_LWC[0], mean_obs, RA1M_LWC[0], DeMott_LWC[0], Cooper_LWC[0]], ['All observed liquid', 'Mean observed liquid', 'Observed transect mean', 'RA1M_mod', 'DeMott', 'Cooper'], markerscale=2, bbox_to_anchor = (1.25, 1.1), loc='best', fontsize=20)
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey')
         lgd.get_frame().set_linewidth(0.0)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f150/mfrac_transect_leg1_liquid.eps', transparent = True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f150/mfrac_transect_leg1_liquid.png', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f150/mfrac_transect_liquid.eps', transparent = True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f150/mfrac_transect_liquid.png', transparent=True)
     plt.show()
 
 mfrac_transect()
