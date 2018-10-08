@@ -30,35 +30,43 @@ def load_model(config, flight_date, times): #times should be a range in the form
             elif fnmatch.fnmatch(file, flight_date) & fnmatch.fnmatch(file, '*%(config)s_pf*' % locals()):
                 pf.append(file)
     os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/f150/')
-    ice_mass_frac = iris.load_cube(pb, 'mass_fraction_of_cloud_ice_in_air')
-    liq_mass_frac = iris.load_cube(pb, 'mass_fraction_of_cloud_liquid_water_in_air')
-    c = iris.load(pb)# IWP and LWP dont load properly
-    IWP = c[1] # stash code s02i392
-    LWP = c[0] # stash code s02i391
     try:
         ice_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_ice_in_air'))
     except iris.exceptions.ConstraintMismatchError:
         print('\n Can\'t find \"mass_fraction_of_cloud_ice_in_air\" in this file, searching STASH...\n')
-    else: ice_mass_frac = iris.load_cube(pb, iris.Constraint(STASH = 'm01s00i012'))
+    try:
+        ice_mass_frac = iris.load_cube(pb, iris.Constraint(STASH='m01s00i012'))
+    except iris.exceptions.ConstraintMismatchError:
+        print('\n Nope. Soz. Not \'ere. \n')
     print('\nliquid mass fraction')
     try:
-        liq_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_liquid_water_in_air',
-                                                  model_level_number=lambda cell: cell < 40,
-                                                  forecast_period=lambda cell: cell >= 12.5))
+        liq_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_liquid_water_in_air'))
     except iris.exceptions.ConstraintMismatchError:
         print('\n Can\'t find \"mass_fraction_of_cloud_liquid_water_in_air\" in this file, searching STASH...\n')
-    else:
-        liq_mass_frac = iris.load_cube(pb, iris.Constraint(STASH='m01s00i254'))
+    try:
+        ice_mass_frac = iris.load_cube(pb, iris.Constraint(STASH='m01s00i254'))
+    except iris.exceptions.ConstraintMismatchError:
+        print('\n Nope. Soz. Not \'ere. \n')
     print('\nice water path') # as above, and convert from kg m-2 to g m-2
     try:
         IWP = iris.load(pb, iris.AttributeConstraint(STASH='m01s02i392'))# stash code s02i392
     except iris.exceptions.ConstraintMismatchError:
-        print('\n IWP not in this file')
+        print('\n Nope. Soz. Not \'ere. \n')
     print('\nliquid water path')
     try:
         LWP = iris.load(pb, iris.AttributeConstraint(STASH='m01s02i391'))
     except iris.exceptions.ConstraintMismatchError:
-        print('\n LWP not in this file')
+        print('\n Nope. Soz. Not \'ere. \n')
+    print('\nCloud droplet number concentration')
+    try:
+        CDNC = iris.load(pc, iris.AttributeConstraint(STASH='m01s00i075'))
+    except iris.exceptions.ConstraintMismatchError:
+        print('\n Nope. Soz. Not \'ere. \n')
+    print('\nIce crystal number concentration')
+    try:
+        ice_number = iris.load(pc, iris.AttributeConstraint(STASH='m01s00i078'))
+    except iris.exceptions.ConstraintMismatchError:
+        print('\n Nope. Soz. Not \'ere. \n')
     lsm = iris.load_cube(pa, 'land_binary_mask')
     orog = iris.load_cube(pa, 'surface_altitude')
     # Rotate data to ordinary lats/lons and convert units to g kg-1 and g m-2
@@ -70,6 +78,9 @@ def load_model(config, flight_date, times): #times should be a range in the form
         j.convert_units('g m-2')
     for k in [lsm, orog]:
         real_lon, real_lat = rotate_data(k, 0, 1)
+    for l in [CDNC, ice_number]:
+        real_lon, real_lat = rotate_data(l, 2, 3)
+        l.convert_units('cm-3')
     # Convert times to useful ones
     for i in [IWP, LWP, ice_mass_frac, liq_mass_frac,]: #qc
         i.coord('time').convert_units('hours since 2011-01-18 00:00')
@@ -90,6 +101,8 @@ def load_model(config, flight_date, times): #times should be a range in the form
     QCL_transect = np.mean(liq_mass_frac[:, :, 127:137, 130:185 ].data, axis=(0, 1, 2))
     IWP_transect = np.mean(IWP[:, 127:137, 130:185 ].data, axis = (0,1))
     LWP_transect = np.mean(LWP[:, 127:137, 130:185  ].data, axis = (0,1))
+    CDNC_transect = np.mean(CDNC[:, :, 127:137, 130:185 ].data, axis=(0, 1, 2))
+    ice_num_transect = np.mean(ice_number[:, :, 127:137, 130:185 ].data, axis=(0, 1, 2))
     QCL_profile = np.mean(ice_mass_frac[:,:,127:137, 130:185].data, axis = (0,2,3))
     # Calculate 5th and 95th percentiles for each longitude bin, and for vertical profile
     ice_95 = np.percentile(box_QCF, 95, axis=(0,1,2))
@@ -104,7 +117,8 @@ def load_model(config, flight_date, times): #times should be a range in the form
     var_dict = {'real_lon': real_lon, 'real_lat':real_lat,   'lsm': lsm, 'orog': orog,  'IWP': IWP, 'LWP':LWP, 'ice_5': ice_5,
                 'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'box_QCF': box_QCF, 'box_QCL': box_QCL, 'vert_5': vert_5,
                  'vert_95': vert_95, 'LWP_transect': LWP_transect,'IWP_transect': IWP_transect, 'QCL_profile': QCL_profile,
-                'QCF_transect': QCF_transect, 'QCL_transect': QCL_transect, 'QCF': ice_mass_frac, 'QCL': liq_mass_frac}
+                'QCF_transect': QCF_transect, 'QCL_transect': QCL_transect, 'QCF': ice_mass_frac, 'QCL': liq_mass_frac,
+                'CDNC': CDNC, 'ice_number': 'ice_number', 'CDNC_transect': CDNC_transect, 'ice_num_transect': ice_num_transect }
     return  var_dict
 
 # Load models in for times of interest: (59, 68) for time of flight, (47, 95) for midday-midnight (discard first 12 hours as spin-up)
