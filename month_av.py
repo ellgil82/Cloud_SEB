@@ -87,14 +87,14 @@ def load_mp(var):
     mean_LWP = np.mean(LWP.data, axis = (2,3))
     mean_QCF = np.mean(ice_mass_frac.data, axis=(0,1,3,4))
     mean_QCL = np.mean(liq_mass_frac.data, axis=(0,1,3,4)) #0,2,3
-    AWS14_mean_QCF = np.mean(ice_mass_frac[:, :,40, 199:201, 199:201].data, axis=(0, 1, 3,4))
-    AWS14_mean_QCL = np.mean(liq_mass_frac[:, :,40, 199:201, 199:201].data, axis=(0, 1, 3,4))
-    AWS15_mean_QCF = np.mean(ice_mass_frac[:, :,40, 161:164, 182:184].data, axis=(0, 1, 3,4))
-    AWS15_mean_QCL = np.mean(liq_mass_frac[:, :,40, 161:164, 182:184].data, axis=(0, 1, 3,4))
-    AWS14_mean_IWP = np.mean(IWP[:, :,199:201, 199:201].data, axis = (2,3))
-    AWS14_mean_LWP = np.mean(LWP[:, :,199:201, 199:201].data, axis = (2,3))
-    AWS15_mean_IWP = np.mean(IWP[:, :,161:164, 182:184].data, axis = (2,3))
-    AWS15_mean_LWP = np.mean(LWP[:, :,161:164, 182:184].data, axis = (2,3))
+    AWS14_mean_QCF = np.mean(ice_mass_frac[:, :,40, 165:167, 98:100].data, axis=(0, 1, 3,4))
+    AWS14_mean_QCL = np.mean(liq_mass_frac[:, :,40, 165:167, 98:100].data, axis=(0, 1, 3,4))
+    AWS15_mean_QCF = np.mean(ice_mass_frac[:, :,40, 127:129, 81:83].data, axis=(0, 1, 3,4))
+    AWS15_mean_QCL = np.mean(liq_mass_frac[:, :,40, 127:129, 81:83].data, axis=(0, 1, 3,4))
+    AWS14_mean_IWP = np.mean(IWP[:, :,165:167, 98:100].data, axis = (2,3))
+    AWS14_mean_LWP = np.mean(LWP[:, :,165:167, 98:100].data, axis = (2,3))
+    AWS15_mean_IWP = np.mean(IWP[:, :,127:129, 81:83].data, axis = (2,3))
+    AWS15_mean_LWP = np.mean(LWP[:, :,127:129, 81:83].data, axis = (2,3))
     # Find max and min values at each model level
     #time_mean_QCF = np.mean(box_QCF, axis=0)
     #array = pd.DataFrame()
@@ -221,9 +221,9 @@ def load_met(var):
     AWS14_mean_theta = np.mean(theta[:, :, 40, 199:201, 199:201].data, axis=(0, 1, 3, 4))
     AWS14_mean_q= np.mean(q[:, :, 40, 199:201, 199:201].data, axis=(0, 1, 3, 4))
     print('\nLast bit! Repeating for AWS 15...')
-    AWS15_mean_T = np.mean(T_air[:, :, 40, 161:164, 182:184].data, axis=(0, 1, 3, 4))
-    AWS15_mean_theta = np.mean(theta[:, :, 40, 161:164, 182:184].data, axis=(0, 1, 3, 4))
-    AWS15_mean_q= np.mean(q[:, :, 40, 161:164, 182:184].data, axis=(0, 1, 3, 4))
+    AWS15_mean_T = np.mean(T_air[:, :, 40, 161:163, 182:184].data, axis=(0, 1, 3, 4))
+    AWS15_mean_theta = np.mean(theta[:, :, 40, 161:163, 182:184].data, axis=(0, 1, 3, 4))
+    AWS15_mean_q= np.mean(q[:, :, 40, 161:163, 182:184].data, axis=(0, 1, 3, 4))
     altitude = T_air.coord('level_height').points[:40] / 1000
     var_dict = {'real_lon': real_lon, 'real_lat': real_lat, 'lsm': lsm, 'orog': orog, 'altitude': altitude, 'box_T': box_T,
                 'box_theta': box_q, 'AWS14_mean_T': AWS14_mean_T, 'AWS14_mean_theta': AWS14_mean_theta, 'AWS14_mean_q': AWS14_mean_q,
