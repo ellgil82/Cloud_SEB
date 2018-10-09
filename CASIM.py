@@ -22,7 +22,7 @@ from tools import compose_date, compose_time
 from rotate_data import rotate_data
 from divg_temp_colourmap import shiftedColorMap
 
-os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
+os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/t24/')
 
 # Load model data
 def load_model(config, flight_date, times): #times should be a range in the format 11,21
@@ -30,14 +30,14 @@ def load_model(config, flight_date, times): #times should be a range in the form
     pb = []
     pf = []
     print('\nimporting data from %(config)s...' % locals())
-    for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/'):
+    for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/t24/'):
             if fnmatch.fnmatch(file, flight_date + '*%(config)s_pb*' % locals()):
                 pb.append(file)
             elif fnmatch.fnmatch(file, flight_date + '*%(config)s_pa*' % locals()):
                 pa.append(file)
             elif fnmatch.fnmatch(file, flight_date) & fnmatch.fnmatch(file, '*%(config)s_pf*' % locals()):
                 pf.append(file)
-    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
+    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/t24/')
     ice_mass_frac = iris.load_cube(pb, 'mass_fraction_of_cloud_ice_in_air')
     liq_mass_frac = iris.load_cube(pb, 'mass_fraction_of_cloud_liquid_water_in_air')
     c = iris.load(pb)# IWP and LWP dont load properly
@@ -117,7 +117,7 @@ def load_model(config, flight_date, times): #times should be a range in the form
 
 # Load models in for times of interest: (59, 68) for time of flight, (47, 95) for midday-midnight (discard first 12 hours as spin-up)
 #HM_vars = load_model('Hallett_Mossop', (11,21))
-#RA1M_mod_vars = load_model(config = 'RA1M_mods_lg_t', flight_date = '20110125T0000', times = (11,23))
+#RA1M_mod_vars = load_model(config = 'RA1M_mod_24', flight_date = '20110118T0000', times = (47,95))
 #RA1T_mod_vars = load_model('RA1T_mod_24',(59,68))
 #RA1T_vars = load_model('RA1T_24', (59,68)) # 1 hr means
 #RA1M_vars = load_model('RA1M_24', (59,68))
@@ -157,75 +157,75 @@ def load_obs(flight, flight_date):
     ''' Inputs: flight number as a string, e.g. 'flight159' and flight_date as a string, with date only (not time) in YYYMMDD format, e.g. '20110125' '''
     ## ----------------------------------------------- SET UP VARIABLES --------------------------------------------------##
     ## Load core data
-    print('\nYes yes cuzzy, pretty soon you\'re gonna have some nice core data...')
-    bsl_path_core = '/data/mac/ellgil82/cloud_data/core_data/core_masin_'+flight_date+'_r001_'+flight+'_50hz.nc'
-    cubes = iris.load(bsl_path_core)
-    RH = iris.load_cube(bsl_path_core, 'relative_humidity')
-    core_temp = cubes[34] #de-iced temperature
-    core_temp = core_temp.data[84:15432] # trim so times match
-    core_temp = core_temp -273.15
-    plane_lat = iris.load_cube(bsl_path_core, 'latitude')
-    plane_lat = plane_lat.data[84:15432]
-    plane_lon = iris.load_cube(bsl_path_core, 'longitude')
-    plane_lon = plane_lon.data[84:15432]
-    plane_alt = iris.load_cube(bsl_path_core, 'altitude')
-    plane_alt = plane_alt.data[84:15432]
-    core_time =  iris.load_cube(bsl_path_core, 'time')
-    core_time = core_time.data[84:15432]
-    ## Load CIP data
-    # Load CIP from .npz
-    print('\nOi mate, right now I\'m loading some siiiiick CIP data...')
-    path = '/data/mac/ellgil82/cloud_data/Constantino_Oasis_Peninsula/'
-    s_file = flight+'_s_v2.npz'
-    npz_s=np.load(path+s_file)
-    m_file = flight+'_m_v2.npz'
-    npz_m = np.load(path + m_file)
-    n_file = flight+'_n_v2.npz'
-    npz_n = np.load(path + n_file)
-    CIP_time = npz_m['time']
-    CIP_bound = npz_s['TestPlot_all_y']
-    m_all = npz_m['TestPlot_all_y']
-    IWC = npz_m['TestPlot_HI_y']+ npz_m['TestPlot_MI_y']
-    S_LI = npz_m['TestPlot_LI_y']+npz_m['TestPlot_S_y']
-    n_drop_CIP = npz_n['TestPlot_LI_y']+npz_n['TestPlot_S_y']
-    # Load CAS data
-    CAS_file = '/data/mac/ellgil82/cloud_data/netcdfs/'+flight+'_cas.nc'
-    # Create variables
-    print ('\nOn dis CAS ting...')
-    LWC_cas = iris.load_cube(CAS_file, 'liquid water content calculated from CAS ')
-    LWC_cas = LWC_cas.data
-    CAS_time = iris.load_cube(CAS_file, 'time')
-    CAS_time = CAS_time.data
-    aer = iris.load_cube(CAS_file, 'Aerosol concentration spectra measured by cas ')
-    n_drop_CAS = np.nansum(aer[8:,:].data, axis=0)
-    n_drop =  n_drop_CAS[:15348]
-    ## ----------------------------------------- PERFORM CALCULATIONS ON DATA --------------------------------------------##
-    # Find number concentrations of ice only
-    n_ice = npz_s['TestPlot_HI_z']+npz_s['TestPlot_MI_z']
-    n_ice = n_ice * 2. # correct data (as advised by TLC and done by Constantino for their 2016 and 2017 papers)
-    n_ice = n_ice/1000 #in cm-3
-    n_ice = n_ice[1:]
-    CIP_mean_ice = []
-    j = np.arange(64)
-    for i in j:#
-        m = np.mean(n_ice[:,i])
-        CIP_mean_ice = np.append(CIP_mean_ice,m)
-    # Convert times
-    unix_time = 1295308800
-    CIP_real_time = CIP_time + unix_time
-    s = pd.Series(CIP_real_time)
-    CIP_time = pd.to_datetime(s, unit='s')
-    core_time = core_time + unix_time
-    core_time = pd.Series(core_time)
-    core_time = pd.to_datetime(core_time, unit='s')
-    CAS_time = np.ndarray.astype(CAS_time, float)
-    CAS_time = CAS_time / 1000
-    CAS_real_time = CAS_time + unix_time
-    s = pd.Series(CAS_real_time)
-    CAS_time = pd.to_datetime(s, unit='s')
-    # Make times match
-    CAS_time_short = CAS_time[:15348]
-    CIP_time_short = CIP_time[1:]
+print('\nYes yes cuzzy, pretty soon you\'re gonna have some nice core data...')
+bsl_path_core = '/data/mac/ellgil82/cloud_data/core_data/core_masin_'+flight_date+'_r001_'+flight+'_50hz.nc'
+cubes = iris.load(bsl_path_core)
+#RH = iris.load_cube(bsl_path_core, 'relative_humidity')
+core_temp = cubes[34] #de-iced temperature
+core_temp = core_temp.data[84:15432] # trim so times match
+core_temp = core_temp -273.15
+plane_lat = iris.load_cube(bsl_path_core, 'latitude')
+plane_lat = plane_lat.data[84:15432]
+plane_lon = iris.load_cube(bsl_path_core, 'longitude')
+plane_lon = plane_lon.data[84:15432]
+plane_alt = iris.load_cube(bsl_path_core, 'altitude')
+plane_alt = plane_alt.data[84:15432]
+core_time =  iris.load_cube(bsl_path_core, 'time')
+core_time = core_time.data[84:15432]
+## Load CIP data
+# Load CIP from .npz
+print('\nOi mate, right now I\'m loading some siiiiick CIP data...')
+path = '/data/mac/ellgil82/cloud_data/Constantino_Oasis_Peninsula/'
+s_file = flight+'_s_v2.npz'
+npz_s=np.load(path+s_file)
+m_file = flight+'_m_v2.npz'
+npz_m = np.load(path + m_file)
+n_file = flight+'_n_v2.npz'
+npz_n = np.load(path + n_file)
+CIP_time = npz_m['time']
+CIP_bound = npz_s['TestPlot_all_y']
+m_all = npz_m['TestPlot_all_y']
+IWC = npz_m['TestPlot_HI_y']+ npz_m['TestPlot_MI_y']
+S_LI = npz_m['TestPlot_LI_y']+npz_m['TestPlot_S_y']
+n_drop_CIP = npz_n['TestPlot_LI_y']+npz_n['TestPlot_S_y']
+# Load CAS data
+CAS_file = '/data/mac/ellgil82/cloud_data/netcdfs/'+flight+'_cas.nc'
+# Create variables
+print ('\nOn dis CAS ting...')
+LWC_cas = iris.load_cube(CAS_file, 'liquid water content calculated from CAS ')
+LWC_cas = LWC_cas.data
+CAS_time = iris.load_cube(CAS_file, 'time')
+CAS_time = CAS_time.data
+aer = iris.load_cube(CAS_file, 'Aerosol concentration spectra measured by cas ')
+n_drop_CAS = np.nansum(aer[8:,:].data, axis=0)
+n_drop =  n_drop_CAS[:15348]
+## ----------------------------------------- PERFORM CALCULATIONS ON DATA --------------------------------------------##
+# Find number concentrations of ice only
+n_ice = npz_s['TestPlot_HI_z']+npz_s['TestPlot_MI_z']
+n_ice = n_ice * 2. # correct data (as advised by TLC and done by Constantino for their 2016 and 2017 papers)
+n_ice = n_ice/1000 #in cm-3
+n_ice = n_ice[1:]
+CIP_mean_ice = []
+j = np.arange(64)
+for i in j:#
+    m = np.mean(n_ice[:,i])
+    CIP_mean_ice = np.append(CIP_mean_ice,m)
+# Convert times
+unix_time = 1295308800
+CIP_real_time = CIP_time + unix_time
+s = pd.Series(CIP_real_time)
+CIP_time = pd.to_datetime(s, unit='s')
+core_time = core_time + unix_time
+core_time = pd.Series(core_time)
+core_time = pd.to_datetime(core_time, unit='s')
+CAS_time = np.ndarray.astype(CAS_time, float)
+CAS_time = CAS_time / 1000
+CAS_real_time = CAS_time + unix_time
+s = pd.Series(CAS_real_time)
+CAS_time = pd.to_datetime(s, unit='s')
+# Make times match
+CAS_time_short = CAS_time[:15348]
+CIP_time_short = CIP_time[1:]
     ## ------------------------------------- COMPUTE WHOLE-FLIGHT STATISTICS ---------------------------------------------##
     # FIND IN-CLOUD LEGS
     # Find only times when flying over ice shelf
@@ -303,7 +303,7 @@ def load_obs(flight, flight_date):
     n_ice_profile = np.append([0,0,0], n_ice_profile)
     return IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_liq, drop_profile, drop_array, nconc_ice, box_IWC, box_LWC, box_nconc_ice, box_nconc_liq, n_ice_profile
 
-IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_liq, drop_profile, drop_array, nconc_ice, box_IWC, box_LWC, box_nconc_ice, box_nconc_liq, n_ice_profile = load_obs(flight = 'flight159', flight_date = '20110125')
+IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_liq, drop_profile, drop_array, nconc_ice, box_IWC, box_LWC, box_nconc_ice, box_nconc_liq, n_ice_profile = load_obs(flight = 'flight152', flight_date = '20110118')
 
 #mean_QCF, mean_QCL, altitude, liq_5, liq_95, max_QCF, max_QCL, min_QCF, min_QCL, ice_5, ice_95, AWS14_mean_QCF, AWS14_mean_QCL, AWS15_mean_QCF, AWS15_mean_QCL, real_lon, real_lat = load_model('CASIM_ctrl')
 
@@ -392,8 +392,6 @@ obs_mod_profile(RA1M_mod_vars)
 model_runs = [RA1M_vars, RA1M_mod_vars]#, RA1T_vars, RA1T_mod_vars]#[RA1M_mod_vars, CASIM_vars]
 
 obs_mod_profile(RA1M_vars)
-
-
 
 def column_totals():
     fig, ax = plt.subplots(len(model_runs), 2, sharex='col', figsize=(15, len(model_runs * 5) + 3))
@@ -536,8 +534,6 @@ def QCF_plot():
     plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/v11_QCF_obs_v_all_mod_24.eps')
     #plt.show()
 
-
-
 def QCL_plot():
     fig, ax = plt.subplots(len(model_runs), 2, sharex='col', figsize=(15, len(model_runs * 5) + 3))
     ax = ax.flatten()
@@ -615,10 +611,8 @@ def QCL_plot():
     plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/v11_QCL_obs_v_all_mod_24.eps')
     #plt.show()
 
-
 #QCF_plot()
 #QCL_plot()
-
 
 from itertools import chain
 import scipy
@@ -898,3 +892,79 @@ def dif_plot():
     plt.show()
 
 #dif_plot()
+
+def SEB_correl():
+    fig, ax = plt.subplots(2, 2, sharex='col', figsize=(18, 15))  # , squeeze=False)
+    ax = ax.flatten()
+    lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i', 9: 'j', 10: 'k', 11: 'l' }
+    plot = 0
+    IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_liq, drop_profile, drop_array, nconc_ice,\
+    box_IWC, box_LWC, box_nconc_ice, box_nconc_liq, n_ice_profile = load_obs()
+    var_names = ['cloud \nice content', 'cloud \nliquid content']
+    for axs in ax:
+        axs.spines['top'].set_visible(False)
+        plt.setp(axs.spines.values(), linewidth=2, color='dimgrey', )
+        axs.set(adjustable='box-forced', aspect='equal')
+        axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+        [l.set_visible(False) for (w, l) in enumerate(axs.yaxis.get_ticklabels()) if w % 2 != 0]
+        [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
+    for run in model_runs:
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(IWC_profile, run['mean_QCF'])
+        if p <= 0.01:
+            ax[plot].text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                          s='r$^{2}$ = %s' % np.round(r2, decimals=2), fontweight = 'bold', transform=ax[plot].transAxes, size=24,
+                          color='dimgrey')
+        else:
+            ax[plot].text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                          s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax[plot].transAxes, size=24,
+                          color='dimgrey')
+        ax[plot].scatter(IWC_profile, run['mean_QCF'], color = '#f68080', s = 50)
+        ax[plot].set_xlim(min(chain(IWC_profile, run['mean_QCF'])), max(chain(IWC_profile, run['mean_QCF'])))
+        ax[plot].set_ylim(min(chain(IWC_profile, run['mean_QCF'])), max(chain(IWC_profile, run['mean_QCF'])))
+        ax[plot].plot(ax[plot].get_xlim(), ax[plot].get_ylim(), ls="--", c = 'k', alpha = 0.8)
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(LWC_profile, run['mean_QCL'])
+        if p <= 0.01:
+            ax[plot+1].text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                          s='r$^{2}$ = %s' % np.round(r2, decimals=2), fontweight='bold', transform=ax[plot+1].transAxes,
+                          size=24,
+                          color='dimgrey')
+        else:
+            ax[plot+1].text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                          s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax[plot+1].transAxes, size=24,
+                          color='dimgrey')
+        ax[plot+1].scatter(LWC_profile, run['mean_QCL'], color='#f68080', s=50)
+        ax[plot+1].set_xlim(min(chain(LWC_profile, run['mean_QCL'])), max(chain(LWC_profile, run['mean_QCL'])))
+        ax[plot+1].set_ylim(min(chain(LWC_profile, run['mean_QCL'])), max(chain(LWC_profile, run['mean_QCL'])))
+        ax[plot+1].plot(ax[plot+1].get_xlim(), ax[plot+1].get_ylim(), ls="--", c='k', alpha=0.8)
+         #'r$^{2}$ = %s' % r2,
+        ax[plot].set_xlabel('Observed %s' % var_names[0], size = 24, color = 'dimgrey', rotation = 0, labelpad = 10)
+        ax[plot].set_ylabel('Modelled %s' % var_names[0], size = 24, color = 'dimgrey', rotation =0, labelpad= 80)
+        ax[plot+1].set_xlabel('Observed %s' % var_names[1], size = 24, color = 'dimgrey', rotation = 0, labelpad = 10)
+        ax[plot+1].set_ylabel('Modelled %s' % var_names[1], size = 24, color = 'dimgrey', rotation =0, labelpad= 80)
+        lab = ax[plot].text(0.1, 0.85, transform = ax[plot].transAxes, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
+        lab2 = ax[plot+1].text(0.1, 0.85, transform = ax[plot+1].transAxes, s=lab_dict[plot+1], fontsize=32, fontweight='bold', color='dimgrey')
+        titles = ['    RA1M','    RA1M','RA1M_mod','RA1M_mod','     fl_av', '     fl_av','    RA1T','    RA1T',  'RA1T_mod', 'RA1T_mod','   CASIM','   CASIM']
+        ax[plot].text(0.83, 1.1, transform=ax[plot].transAxes, s=titles[plot], fontsize=28, color='dimgrey')
+        plt.setp(ax[plot].get_xticklabels()[-2], visible=False)
+        plt.setp(ax[plot].get_yticklabels()[-2], visible=False)
+        ax[plot+1].yaxis.tick_right()
+        [l.set_visible(False) for (w, l) in enumerate(ax[plot + 1].yaxis.get_ticklabels()) if w % 2 != 0]
+        ax[plot].yaxis.set_label_coords(-0.6, 0.5)
+        ax[plot+1].yaxis.set_label_coords(1.6, 0.5)
+        ax[plot].spines['right'].set_visible(False)
+        ax[plot+1].spines['left'].set_visible(False)
+        plot = plot + 2
+        plt.subplots_adjust(top = 0.98, hspace = 0.15, bottom = 0.05, wspace = 0.15, left = 0.25, right = 0.75)
+    #plt.setp(ax[5].get_xticklabels()[-2], visible=False)
+    #plt.setp(ax[6].get_xticklabels()[-2], visible=False)
+    #plt.setp(ax[1].get_xticklabels()[-3], visible=False)
+    #plt.setp(ax[2].get_xticklabels()[-3], visible=False)
+    #plt.setp(ax[2].get_yticklabels()[-1], visible=False)
+    #plt.setp(ax[5].get_yticklabels()[-2], visible=False)
+    #plt.setp(ax[6].get_yticklabels()[-2], visible=False)
+    #plt.setp(ax[1].get_yticklabels()[-3], visible=False)
+    #plt.setp(ax[2].get_yticklabels()[-3], visible=False)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/correlations_24.png', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/correlations_24.eps', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/correlations_24.pdf', transparent=True)
+    plt.show()

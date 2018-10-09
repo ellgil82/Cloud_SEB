@@ -30,41 +30,46 @@ def load_model(config, flight_date, times): #times should be a range in the form
             elif fnmatch.fnmatch(file, flight_date) & fnmatch.fnmatch(file, '*%(config)s_pf*' % locals()):
                 pf.append(file)
     os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/f150/')
+    print('\nIce mass fraction')
     try:
         ice_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_ice_in_air'))
     except iris.exceptions.ConstraintMismatchError:
         print('\n Can\'t find \"mass_fraction_of_cloud_ice_in_air\" in this file, searching STASH...\n')
-    try:
         ice_mass_frac = iris.load_cube(pb, iris.Constraint(STASH='m01s00i012'))
-    except iris.exceptions.ConstraintMismatchError:
         print('\n Nope. Soz. Not \'ere. \n')
     print('\nliquid mass fraction')
     try:
         liq_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_liquid_water_in_air'))
     except iris.exceptions.ConstraintMismatchError:
         print('\n Can\'t find \"mass_fraction_of_cloud_liquid_water_in_air\" in this file, searching STASH...\n')
-    try:
         ice_mass_frac = iris.load_cube(pb, iris.Constraint(STASH='m01s00i254'))
-    except iris.exceptions.ConstraintMismatchError:
         print('\n Nope. Soz. Not \'ere. \n')
     print('\nice water path') # as above, and convert from kg m-2 to g m-2
     try:
-        IWP = iris.load(pb, iris.AttributeConstraint(STASH='m01s02i392'))# stash code s02i392
+        IWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i392'))# stash code s02i392
     except iris.exceptions.ConstraintMismatchError:
         print('\n Nope. Soz. Not \'ere. \n')
     print('\nliquid water path')
     try:
-        LWP = iris.load(pb, iris.AttributeConstraint(STASH='m01s02i391'))
+        LWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i391'))
     except iris.exceptions.ConstraintMismatchError:
         print('\n Nope. Soz. Not \'ere. \n')
     print('\nCloud droplet number concentration')
     try:
-        CDNC = iris.load(pc, iris.AttributeConstraint(STASH='m01s00i075'))
+        CDNC = iris.load_cube(pc, iris.AttributeConstraint(STASH='m01s00i075'))
+        CDNC_transect = np.mean(CDNC[:, :, 127:137, 130:185].data, axis=(0, 1, 2))
     except iris.exceptions.ConstraintMismatchError:
         print('\n Nope. Soz. Not \'ere. \n')
     print('\nIce crystal number concentration')
     try:
-        ice_number = iris.load(pc, iris.AttributeConstraint(STASH='m01s00i078'))
+        ice_number = iris.load_cube(pc, iris.AttributeConstraint(STASH='m01s00i078'))
+        ice_num_transect = np.mean(ice_number[:, :, 127:137, 130:185].data, axis=(0, 1, 2))
+        for l in [CDNC, ice_number]:
+            real_lon, real_lat = rotate_data(l, 2, 3)
+            l = l/1e6
+            l.convert_units('cm-3')
+        CDNC_5 = np.percentile(CDNC[times[0]:times[1], :40, 115:150, 130:185].data, 5, axis=(0, 1, 2))
+        CDNC_95 = np.percentile(CDNC[times[0]:times[1], :40, 115:150, 130:185].data, 95, axis=(0, 1, 2))
     except iris.exceptions.ConstraintMismatchError:
         print('\n Nope. Soz. Not \'ere. \n')
     lsm = iris.load_cube(pa, 'land_binary_mask')
@@ -78,9 +83,6 @@ def load_model(config, flight_date, times): #times should be a range in the form
         j.convert_units('g m-2')
     for k in [lsm, orog]:
         real_lon, real_lat = rotate_data(k, 0, 1)
-    for l in [CDNC, ice_number]:
-        real_lon, real_lat = rotate_data(l, 2, 3)
-        l.convert_units('cm-3')
     # Convert times to useful ones
     for i in [IWP, LWP, ice_mass_frac, liq_mass_frac,]: #qc
         i.coord('time').convert_units('hours since 2011-01-18 00:00')
@@ -101,8 +103,6 @@ def load_model(config, flight_date, times): #times should be a range in the form
     QCL_transect = np.mean(liq_mass_frac[:, :, 127:137, 130:185 ].data, axis=(0, 1, 2))
     IWP_transect = np.mean(IWP[:, 127:137, 130:185 ].data, axis = (0,1))
     LWP_transect = np.mean(LWP[:, 127:137, 130:185  ].data, axis = (0,1))
-    CDNC_transect = np.mean(CDNC[:, :, 127:137, 130:185 ].data, axis=(0, 1, 2))
-    ice_num_transect = np.mean(ice_number[:, :, 127:137, 130:185 ].data, axis=(0, 1, 2))
     QCL_profile = np.mean(ice_mass_frac[:,:,127:137, 130:185].data, axis = (0,2,3))
     # Calculate 5th and 95th percentiles for each longitude bin, and for vertical profile
     ice_95 = np.percentile(box_QCF, 95, axis=(0,1,2))
@@ -114,17 +114,24 @@ def load_model(config, flight_date, times): #times should be a range in the form
     # Calculate PDF of ice and liquid water contents
     #liq_PDF = mean_liq.plot.density(color = 'k', linewidth = 1.5)
     #ice_PDF = mean_ice.plot.density(linestyle = '--', linewidth=1.5, color='k')
-    var_dict = {'real_lon': real_lon, 'real_lat':real_lat,   'lsm': lsm, 'orog': orog,  'IWP': IWP, 'LWP':LWP, 'ice_5': ice_5,
-                'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'box_QCF': box_QCF, 'box_QCL': box_QCL, 'vert_5': vert_5,
-                 'vert_95': vert_95, 'LWP_transect': LWP_transect,'IWP_transect': IWP_transect, 'QCL_profile': QCL_profile,
-                'QCF_transect': QCF_transect, 'QCL_transect': QCL_transect, 'QCF': ice_mass_frac, 'QCL': liq_mass_frac,
-                'CDNC': CDNC, 'ice_number': 'ice_number', 'CDNC_transect': CDNC_transect, 'ice_num_transect': ice_num_transect }
+    if 'CDNC' in locals():
+        var_dict = {'real_lon': real_lon, 'real_lat':real_lat,   'lsm': lsm, 'orog': orog,  'IWP': IWP, 'LWP':LWP, 'ice_5': ice_5,
+                    'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'box_QCF': box_QCF, 'box_QCL': box_QCL, 'vert_5': vert_5,
+                     'vert_95': vert_95, 'LWP_transect': LWP_transect,'IWP_transect': IWP_transect, 'QCL_profile': QCL_profile,
+                    'QCF_transect': QCF_transect, 'QCL_transect': QCL_transect, 'QCF': ice_mass_frac, 'QCL': liq_mass_frac,
+                    'CDNC': CDNC, 'ice_number': ice_number, 'CDNC_transect': CDNC_transect, 'ice_num_transect': ice_num_transect,
+                    'CDNC_5': CDNC_5, 'CDNC_95': CDNC_95}
+    else:
+        var_dict = {'real_lon': real_lon, 'real_lat':real_lat,   'lsm': lsm, 'orog': orog,  'IWP': IWP, 'LWP':LWP, 'ice_5': ice_5,
+                    'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'box_QCF': box_QCF, 'box_QCL': box_QCL, 'vert_5': vert_5,
+                     'vert_95': vert_95, 'LWP_transect': LWP_transect,'IWP_transect': IWP_transect, 'QCL_profile': QCL_profile,
+                    'QCF_transect': QCF_transect, 'QCL_transect': QCL_transect, 'QCF': ice_mass_frac, 'QCL': liq_mass_frac}
     return  var_dict
 
 # Load models in for times of interest: (59, 68) for time of flight, (47, 95) for midday-midnight (discard first 12 hours as spin-up)
-#RA1M_mod_vars = load_model(config = 'RA1M_mods_f150', flight_date = '20110115T1200', times = (0,11))
-Cooper_vars = load_model(config = 'Cooper', flight_date = '20110115T0000', times = (59,68))
-DeMott_vars = load_model(config = 'DeMott', flight_date = '20110115T0000',  times = (59,68))
+RA1M_mod_vars = load_model(config = 'RA1M_mods_f150', flight_date = '20110115T1200', times = (0,-1))
+Cooper_vars = load_model(config = 'Cooper', flight_date = '20110115T0000', times = (47,95))
+DeMott_vars = load_model(config = 'DeMott', flight_date = '20110115T0000',  times = (47,95))
 #model_runs = [RA1M_vars, RA1M_mod_vars,RA1T_vars, RA1T_mod_vars]#, CASIM_vars fl_av_vars, ]
 
 def load_obs():
@@ -299,11 +306,11 @@ def load_obs():
     LWC_profile = grouped_liq[:520].groupby(['alt_idx']).mean()['LWC']
     LWC_profile = np.append(np.zeros(10), LWC_profile)
     LWC_profile = np.insert(LWC_profile, [21], [0,0,0,0,0])
-    return aer, IWC_array, LWC_array, lon_bins, IWC_transect1, LWC_transect1, drop_transect1, \
+    return aer, IWC_array, LWC_array, lon_bins, IWC_transect1, LWC_transect1, drop_transect1, alt_array_liq, \
            ice_transect1, nice_leg1, drop_leg1, ice_lons_leg1, ice_lons_leg2, IWC_leg1, LWC_leg1, IWC_transect2, \
            LWC_transect2, drop_transect2, ice_transect2, nice_leg2, drop_leg2,liq_lons_leg1, liq_lons_leg2, IWC_leg2, LWC_leg2, LWC_profile
 
-aer, IWC_array, LWC_array,lon_bins, IWC_transect1, LWC_transect1, drop_transect1, ice_transect1, nice_leg1, drop_leg1, ice_lons_leg1, ice_lons_leg2, IWC_leg1, \
+aer, IWC_array, LWC_array,lon_bins, IWC_transect1, LWC_transect1, drop_transect1,  alt_array_liq, ice_transect1, nice_leg1, drop_leg1, ice_lons_leg1, ice_lons_leg2, IWC_leg1, \
 LWC_leg1, IWC_transect2, LWC_transect2, drop_transect2, ice_transect2, nice_leg2, drop_leg2,liq_lons_leg1, liq_lons_leg2, IWC_leg2, LWC_leg2, LWC_profile = load_obs()
 
 
@@ -386,55 +393,43 @@ def obs_var_scatter():
 
 def nconc_transect():
     fig = plt.figure(figsize=(18, 7))
-    ax = fig.add_subplot(111)
-    ax2 = plt.twinx(ax)
+    ax2 = fig.add_subplot(111)
     ax3 = plt.twiny(ax2)
-    ax4 = plt.twiny(ax)
-    ax4.axis('off')
     ax3.axis('off')
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
     ax2.spines['top'].set_visible(False)
-    plt.setp(ax.spines.values(), linewidth=3, color='dimgrey')
+    ax2.spines['right'].set_visible(False)
+    plt.setp(ax3.spines.values(), linewidth=3, color='dimgrey')
     plt.setp(ax2.spines.values(), linewidth=3, color='dimgrey')
-    ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-    [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
-    #[l.set_visible(False) for (w, l) in enumerate(ax2.yaxis.get_ticklabels()) if w % 2 != 0]
-    #mean_IWC = ax.plot(lon_bins, ice_transect2, linewidth = 2, color = '#7570b3', label = 'Mean ice')
-    mean_LWC = ax2.plot(lon_bins, drop_transect1, linewidth = 2, color = '#1b9e77', label = 'Mean droplet')
-    scatter_LWC = ax3.scatter(liq_lons_leg1, drop_leg1, marker = 's', color = '#1b9e77', label = 'All droplets', alpha=0.65)
-    #scatter_IWC = ax4.scatter(lons_leg2, nice_leg2, marker = 'o', color = '#7570b3', label = 'All ice')
-    ax.set_xlim(np.min(lon_bins), np.max(lon_bins))
+    ax2.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+    [l.set_visible(False) for (w, l) in enumerate(ax2.yaxis.get_ticklabels()) if w % 2 != 0]
+    # mean_IWC = ax.plot(lon_bins, IWC_transect2, linewidth = 2, color = '#7570b3', label = 'Mean ice')
+    mean_LWC = ax2.plot(lon_bins, drop_transect1, linewidth=2, color='#1b9e77', label='Mean liquid')
+    scatter_LWC = ax3.scatter(liq_lons_leg1, drop_leg1, marker='s', color='#1b9e77', label='All liquid', alpha=0.65)
+    DeMott_LWC = ax2.plot(lon_bins, DeMott_vars['CDNC_transect'], lw=2, color='#EA580F', label='DeMott')
+    Cooper_LWC = ax2.plot(lon_bins, Cooper_vars['CDNC_transect'], lw=2, color='#5D13E8', label='Cooper')
+    mean_obs = ax2.axhline(y=np.mean(drop_leg1), linestyle='--', color='#222222', lw=2, label='Observed transect mean')
+    #ax2.fill_between(lon_bins, RA1M_mod_vars['liq_5'], RA1M_mod_vars['liq_95'], facecolor='#1f78b4', alpha=0.5)
+    #ax2.fill_between(lon_bins, Cooper_vars['liq_5'], Cooper_vars['liq_95'], facecolor='#EA580F', alpha=0.5)
+    #ax2.fill_between(lon_bins, DeMott_vars['liq_5'], DeMott_vars['liq_95'], facecolor='#5D13E8', alpha=0.5)
+    # scatter_IWC = ax4.scatter(lons_leg2, IWC_leg2, marker = 'o', color = '#7570b3', label = 'All ice')
     ax2.set_xlim(np.min(lon_bins), np.max(lon_bins))
     ax3.set_xlim(np.min(lon_bins), np.max(lon_bins))
-    ax4.set_xlim(np.min(lon_bins), np.max(lon_bins))
-    ax.set_ylim(0, 0.0008)
-    ax4.set_ylim(0, 0.0008)
-    ax2.set_ylim(0,500.001)
-    ax3.set_ylim(0,500.001)
-    ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-    ax2.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-    ax3.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-    ax4.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-    ax.yaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))
-    ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
-    ax.yaxis.get_offset_text().set_fontsize(24)
-    ax2.yaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))
-    ax2.ticklabel_format(style='sci', axis='y', scilimits=(-3, 2))
+    ax2.set_ylim(0, 350)
+    ax3.set_ylim(0, 350)
     ax2.yaxis.get_offset_text().set_fontsize(24)
     ax2.yaxis.get_offset_text().set_color('dimgrey')
-    ax.yaxis.get_offset_text().set_color('dimgrey')
-    plt.setp(ax.get_yticklabels()[-2], visible=False)
+    plt.setp(ax2.get_yticklabels()[-1], visible=False)
     ax2.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-    ax2.set_ylabel('Liquid droplet \nnumber \nconcentration \n(cm$^{-3}$)', rotation = 0, fontname='SegoeUI semibold', color = 'dimgrey', fontsize = 28, labelpad = 10)
-    #ax.set_ylabel('Ice particle \nnumber \nconcentration \n(cm$^{-3}$)', rotation = 0, fontname='SegoeUI semibold', color = 'dimgrey', fontsize = 28, labelpad = 10)
-    ax.set_xlabel('Longitude', fontname='SegoeUI semibold', fontsize = 28, color = 'dimgrey', labelpad = 10)
-    ax2.yaxis.set_label_coords(1.22, 0.6)
-    ax.yaxis.set_label_coords(-0.17, 0.28)
+    ax2.set_ylabel('Cloud droplet \nnumber \nconcentration \n(cm$^{-3}$)', rotation=0, fontname='SegoeUI semibold', color='dimgrey',
+                   fontsize=28, labelpad=10)
+    ax2.set_xlabel('Longitude', fontname='SegoeUI semibold', fontsize=28, color='dimgrey', labelpad=10)
+    ax2.yaxis.set_label_coords(-0.22, 0.4)
     ax3.xaxis.set_visible(False)
-    ax4.xaxis.set_visible(False)
-    plt.subplots_adjust(bottom = 0.15, right= 0.77, left = 0.18)
-    lgd = plt.legend()#[mean_IWC[0], mean_LWC[0], scatter_IWC, scatter_LWC], ['Mean ice', 'Mean droplets', 'All ice', 'All droplets'], markerscale=2, bbox_to_anchor = (1.4, 1.1), loc='best', fontsize=24)
+    ax2.set_xticks([-64, -63.5, -63, -62.5])
+    plt.subplots_adjust(bottom=0.15, right=0.85, left=0.24)
+    lgd = plt.legend([scatter_LWC, mean_LWC[0], mean_obs,  DeMott_LWC[0], Cooper_LWC[0]],
+                     ['All observed droplets', 'Mean observed CDNC', 'Observed transect \nmean CDNC',  'DeMott CDNC',
+                     'Cooper CDNC'], markerscale=2, bbox_to_anchor=(0.85, 1.1),  fontsize=20)
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey')
         lgd.get_frame().set_linewidth(0.0)
@@ -461,7 +456,7 @@ def mfrac_transect():
     RA1M_LWC = ax2.plot(lon_bins, RA1M_mod_vars['QCL_transect'], lw = 2, color='#1f78b4', label = 'RA1M_mod')
     DeMott_LWC = ax2.plot(lon_bins, DeMott_vars['QCL_transect'], lw=2, color='#EA580F', label='DeMott')
     Cooper_LWC = ax2.plot(lon_bins, Cooper_vars['QCL_transect'], lw=2, color='#5D13E8', label='Cooper')
-    mean_obs = ax2.axhline(y = np.mean(LWC_transect1), linestyle = '--', color = '#222222', lw = 2, label = 'Observed transect mean')
+    mean_obs = ax2.axhline(y = np.mean(LWC_leg1), linestyle = '--', color = '#222222', lw = 2, label = 'Observed transect mean')
     ax2.fill_between(lon_bins, RA1M_mod_vars['liq_5'], RA1M_mod_vars['liq_95'], facecolor='#1f78b4', alpha = 0.5)
     ax2.fill_between(lon_bins, Cooper_vars['liq_5'], Cooper_vars['liq_95'], facecolor='#EA580F', alpha=0.5)
     ax2.fill_between(lon_bins, DeMott_vars['liq_5'], DeMott_vars['liq_95'], facecolor='#5D13E8', alpha=0.5)

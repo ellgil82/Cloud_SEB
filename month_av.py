@@ -57,12 +57,12 @@ def load_mp(var):
         print('\n QCL not in this file')
     print('\nice water path') # as above, and convert from kg m-2 to g m-2
     try:
-        IWP = iris.load(pb, iris.AttributeConstraint(STASH='m01s02i392') & iris.Constraint(forecast_period=lambda cell: cell >= 12.5))# stash code s02i392
+        IWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i392') & iris.Constraint(forecast_period=lambda cell: cell >= 12.5))# stash code s02i392
     except iris.exceptions.ConstraintMismatchError:
         print('\n IWP not in this file')
     print('\nliquid water path')
     try:
-        LWP = iris.load(pb, iris.AttributeConstraint(STASH='m01s02i391') & iris.Constraint(forecast_period=lambda cell: cell >= 12.5))
+        LWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i391') & iris.Constraint(forecast_period=lambda cell: cell >= 12.5))
     except iris.exceptions.ConstraintMismatchError:
         print('\n LWP not in this file')
     lsm, orog = iris.load_cubes(pa, ['land_binary_mask','surface_altitude'] )
