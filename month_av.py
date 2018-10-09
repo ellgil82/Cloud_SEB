@@ -41,42 +41,40 @@ def load_mp(var):
                 pf.append(file)
     os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
     print('\nice mass fraction')
-    # Load only last 12 hours of forecast (i.e. t+12 to t+24, discarding preceding 12 hours as spin-up) for bottom 40 levels, and perform unit conversion from kg kg-1 to g kg-
+    # Load only last 12 hours of forecast (i.e. t+12 to t+24, discarding preceding 12 hours as spin-up) for bottom 40 levels,
+    # over the coordinates of the ice shelf (in rotated pole coordinates) and perform unit conversion from kg kg-1 to g kg-1.
     try:
         ice_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_ice_in_air',
-                                                  model_level_number=lambda cell: cell < 40,
+                                                  model_level_number=lambda cell: cell < 40, grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9,
                                                   forecast_period=lambda cell: cell >= 12.5))
     except iris.exceptions.ConstraintMismatchError:
         print('\n QCF not in this file')
     print('\nliquid mass fraction')
     try:
         liq_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_liquid_water_in_air',
-                                                  model_level_number=lambda cell: cell < 40,
+                                                  model_level_number=lambda cell: cell < 40,grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9,
                                                   forecast_period=lambda cell: cell >= 12.5))
     except iris.exceptions.ConstraintMismatchError:
         print('\n QCL not in this file')
     print('\nice water path') # as above, and convert from kg m-2 to g m-2
     try:
-        IWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i392') & iris.Constraint(forecast_period=lambda cell: cell >= 12.5))# stash code s02i392
+        IWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i392') & iris.Constraint(grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))# stash code s02i392
     except iris.exceptions.ConstraintMismatchError:
         print('\n IWP not in this file')
     print('\nliquid water path')
     try:
-        LWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i391') & iris.Constraint(forecast_period=lambda cell: cell >= 12.5))
+        LWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i391') & iris.Constraint(grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))
     except iris.exceptions.ConstraintMismatchError:
         print('\n LWP not in this file')
-    lsm, orog = iris.load_cubes(pa, ['land_binary_mask','surface_altitude'] )
+    constr_lsm = iris.load_cube(pa, iris.Constraint(name ='land_binary_mask', grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9 ))
+    constr_orog = iris.load_cube(pa, iris.Constraint(name ='surface_altitude', grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9 ))
+    # Convert units and times to useful ones
     for i in [ice_mass_frac, liq_mass_frac]:#, qc]:
-        real_lon, real_lat = rotate_data(i, 3, 4)
         i.convert_units('g kg-1')
-    for j in [LWP, IWP,]: #cl_A
-        real_lon, real_lat = rotate_data(j, 2, 3) # time vars don't load in properly = forecast time + real time
-        j.convert_units('g m-2')
-    for k in [lsm, orog]:
-        real_lon, real_lat = rotate_data(k, 0, 1)
-    # Convert times to useful ones
-    for i in [IWP, LWP, ice_mass_frac, liq_mass_frac,]: #qc
         i.coord('time').convert_units('hours since 2011-01-01 00:00')
+    for j in [LWP, IWP,]: #cl_A
+        j.convert_units('g m-2')
+        j.coord('time').convert_units('hours since 2011-01-01 00:00')
     ## ---------------------------------------- CREATE MODEL VERTICAL PROFILES ------------------------------------------ ##
     # Create mean vertical profiles for region of interest
     # region of interest = ice shelf. Longitudes of ice shelf along transect =
@@ -85,20 +83,18 @@ def load_mp(var):
     # Coord: lon = 188:213, lat = 133:207, time = 4:6 (mean of preceding hours)
     # TESTING: try -63 to -60.8 W, -66.6 to -68.3 = 111:227, 162:213
     print('\ncreating vertical profiles geez...')
-    box_QCF = ice_mass_frac[:, :, :, 133:207, 188:213].data
-    box_QCL = liq_mass_frac[:, :, :, 133:207, 188:213].data
-    box_mean_IWP = np.mean(IWP[:, :, 133:207, 188:213].data, axis = (0,2,3))
-    box_mean_LWP = np.mean(LWP[:, :, 133:207, 188:213].data, axis =(0, 2,3))
-    mean_QCF = np.mean(box_QCF, axis=(0,1,3,4))
-    mean_QCL = np.mean(box_QCL, axis=(0,1,3,4)) #0,2,3
+    mean_IWP = np.mean(IWP.data, axis = (2,3))
+    mean_LWP = np.mean(LWP.data, axis = (2,3))
+    mean_QCF = np.mean(ice_mass_frac.data, axis=(0,1,3,4))
+    mean_QCL = np.mean(liq_mass_frac.data, axis=(0,1,3,4)) #0,2,3
     AWS14_mean_QCF = np.mean(ice_mass_frac[:, :,40, 199:201, 199:201].data, axis=(0, 1, 3,4))
     AWS14_mean_QCL = np.mean(liq_mass_frac[:, :,40, 199:201, 199:201].data, axis=(0, 1, 3,4))
     AWS15_mean_QCF = np.mean(ice_mass_frac[:, :,40, 161:164, 182:184].data, axis=(0, 1, 3,4))
     AWS15_mean_QCL = np.mean(liq_mass_frac[:, :,40, 161:164, 182:184].data, axis=(0, 1, 3,4))
-    AWS14_mean_IWP = np.mean(IWP[:, :,199:201, 199:201].data)
-    AWS14_mean_LWP = np.mean(LWP[:, :,199:201, 199:201].data)
-    AWS15_mean_IWP = np.mean(IWP[:, :,161:164, 182:184].data)
-    AWS15_mean_LWP = np.mean(LWP[:, :,161:164, 182:184].data)
+    AWS14_mean_IWP = np.mean(IWP[:, :,199:201, 199:201].data, axis = (2,3))
+    AWS14_mean_LWP = np.mean(LWP[:, :,199:201, 199:201].data, axis = (2,3))
+    AWS15_mean_IWP = np.mean(IWP[:, :,161:164, 182:184].data, axis = (2,3))
+    AWS15_mean_LWP = np.mean(LWP[:, :,161:164, 182:184].data, axis = (2,3))
     # Find max and min values at each model level
     #time_mean_QCF = np.mean(box_QCF, axis=0)
     #array = pd.DataFrame()
@@ -129,7 +125,7 @@ def load_mp(var):
     #liq_PDF = mean_liq.plot.density(color = 'k', linewidth = 1.5)
     #ice_PDF = mean_ice.plot.density(linestyle = '--', linewidth=1.5, color='k')
     altitude = ice_mass_frac.coord('level_height').points/1000
-    var_dict = {'real_lon': real_lon, 'real_lat':real_lat,   'lsm': lsm, 'orog': orog,  'mean_QCF': mean_QCF, 'mean_QCL': mean_QCL, 'altitude': altitude,
+    var_dict = {'real_lon': real_lon, 'real_lat':real_lat,   'constr_lsm': constr_lsm, 'constr_orog': constr_orog,  'mean_QCF': mean_QCF, 'mean_QCL': mean_QCL, 'altitude': altitude,
                  'AWS14_mean_QCF': AWS14_mean_QCF, 'AWS14_mean_QCL': AWS14_mean_QCL,
                 'AWS15_mean_QCF': AWS15_mean_QCF, 'AWS15_mean_QCL': AWS15_mean_QCL, 'box_QCF': box_QCF, 'box_QCL': box_QCL,'box_mean_IWP': box_mean_IWP, 'box_mean_LWP': box_mean_LWP, 'IWP': IWP, 'LWP':LWP,
                 'AWS14_mean_IWP': AWS14_mean_IWP, 'AWS14_mean_LWP': AWS14_mean_LWP, 'AWS15_mean_IWP': AWS15_mean_IWP, 'AWS15_mean_LWP': AWS15_mean_LWP,
@@ -149,19 +145,24 @@ def load_met(var):
     os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
     print('\nAir temperature')
     # Load only last 12 hours of forecast (i.e. t+12 to t+24, discarding preceding 12 hours as spin-up) for bottom 40 levels, and perform unit conversion from K to *C
-    T_air = iris.load(pa, iris.Constraint(name='air_temperature', model_level_number=lambda cell: cell <= 40, forecast_period=lambda cell: cell >= 12.5))[0]
+    T_air = iris.load_cube(pa, iris.Constraint(name='air_temperature', model_level_number=lambda cell: cell <= 40, forecast_period=lambda cell: cell >= 12.5,
+                                               grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9))
     T_air.convert_units('celsius')
     print('\nAir potential temperature')
-    theta = iris.load(pa, iris.Constraint(name='air_potential_temperature', model_level_number=lambda cell: cell <= 40, forecast_period=lambda cell: cell >= 12.5))[0]
+    theta = iris.load_cube(pa, iris.Constraint(name='air_potential_temperature', model_level_number=lambda cell: cell <= 40, forecast_period=lambda cell: cell >= 12.5,
+                                               grid_longitude=lambda cell: 178.5 < cell < 180.6,
+                                               grid_latitude=lambda cell: -2.5 < cell < 0.9))
     theta.convert_units('celsius')
     print('\nSurface temperature')
-    Ts = iris.load(pa, iris.Constraint(name='surface_temperature', forecast_period=lambda cell: cell >= 12.5))[0]
+    Ts = iris.load_cube(pa, iris.Constraint(name='surface_temperature', forecast_period=lambda cell: cell >= 12.5,
+                                            grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9))
     Ts.convert_units('celsius')
     print('\nSpecific humidity')
-    q = iris.load(pa, iris.Constraint(name='specific_humidity', model_level_number=lambda cell: cell <= 40, forecast_period=lambda cell: cell >= 12.5))[0]
+    q = iris.load_cube(pa, iris.Constraint(name='specific_humidity', model_level_number=lambda cell: cell <= 40, forecast_period=lambda cell: cell >= 12.5,
+                                           grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9,))
     q.convert_units('g kg-1') # Convert to g kg-1
     print('\nMean sea level pressure')
-    MSLP = iris.load(pa, iris.Constraint(name = 'air_pressure_at_sea_level')  & iris.Constraint(forecast_period=lambda cell: cell >= 12.5))[0]
+    MSLP = iris.load_cube(pa, iris.Constraint(name = 'air_pressure_at_sea_level')  & iris.Constraint(forecast_period=lambda cell: cell >= 12.5))
     MSLP.convert_units('hPa')
     print('\nZonal component of wind')
     u = iris.load(pa, iris.Constraint(name = 'x_wind', forecast_period=lambda cell: cell >= 12.5))[0]
