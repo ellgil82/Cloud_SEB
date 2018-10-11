@@ -35,8 +35,6 @@ def load_model(config, flight_date, times): #times should be a range in the form
                 pb.append(file)
             elif fnmatch.fnmatch(file, flight_date + '*%(config)s_pa*' % locals()):
                 pa.append(file)
-            elif fnmatch.fnmatch(file, flight_date) & fnmatch.fnmatch(file, '*%(config)s_pf*' % locals()):
-                pf.append(file)
     os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/t24/')
     ice_mass_frac = iris.load_cube(pb, 'mass_fraction_of_cloud_ice_in_air')
     liq_mass_frac = iris.load_cube(pb, 'mass_fraction_of_cloud_liquid_water_in_air')
@@ -115,16 +113,61 @@ def load_model(config, flight_date, times): #times should be a range in the form
                 'max_QCF': max_QCF, 'min_QCL': min_QCL,'AWS15_mean_QCF': AWS15_mean_QCF, 'AWS15_mean_QCL': AWS15_mean_QCL, 'box_QCF': box_QCF, 'box_QCL': box_QCL} #cl_A': cl_A,'qc': qc,'box_mean_IWP': box_mean_IWP,'box_mean_LWP': box_mean_LWP,
     return  var_dict
 
+def load_SEB(config, flight_date):
+    pa = []
+    pf = []
+    print('\nimporting data from %(config)s...' % locals())
+    for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/t24/'):
+        if fnmatch.fnmatch(file, flight_date + '*%(config)s_pf*' % locals()):
+            pf.append(file)
+        elif fnmatch.fnmatch(file, flight_date + '*%(config)s_pa*' % locals()):
+            pa.append(file)
+    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/t24/')
+    lsm = iris.load_cube(pa, 'land_binary_mask')
+    orog = iris.load_cube(pa, 'surface_altitude')
+    LW_net = iris.load_cube(pf, 'surface_net_downward_longwave_flux')
+    SH =  iris.load_cube(pf, 'surface_upward_sensible_heat_flux')
+    LH = iris.load_cube(pf, 'surface_upward_latent_heat_flux')
+    LW_down = iris.load_cube(pf, 'surface_downwelling_longwave_flux')
+    LW_up = iris.load_cube(pf, 'upwelling_longwave_flux_in_air')
+    SW_up = iris.load_cube(pf, 'upwelling_shortwave_flux_in_air')
+    if config == 'CASIM_24':
+        c = iris.load(pf)
+        SW_net = c[0]
+    else:
+        SW_net = iris.load_cube(pf, 'surface_net_downward_shortwave_flux')
+        Ts = iris.load_cube(pa, 'surface_temperature')
+        Ts.convert_units('celsius')
+    SW_down = iris.load_cube(pf, 'surface_downwelling_shortwave_flux_in_air')
+    for i in [SW_up, LW_up,]:
+        real_lon, real_lat = rotate_data(i, 2, 3)
+    for j in [SW_down, LW_down, LH, SH, LW_net]:#,SW_net_surf,  Ts
+        real_lon, real_lat = rotate_data(j, 1, 2)
+    for k in [lsm, orog]:
+        real_lon, real_lat = rotate_data(k, 0, 1)
+    # Convert times to useful ones
+    for i in [SW_down, SW_up, LW_net, LW_down, LW_up, LH, SH]:#, Ts, SW_net_surf,
+        i.coord('time').convert_units('hours since 2011-01-18 00:00')
+    LH = 0 - LH.data
+    SH = 0 - SH.data
+    if config =='CASIM_24':
+        var_dict = {'real_lon': real_lon, 'real_lat': real_lat, 'SW_up': SW_up, 'SW_down': SW_down,
+                    'LH': LH, 'SH': SH, 'LW_up': LW_up, 'LW_down': LW_down, 'LW_net': LW_net, 'SW_net': SW_net}
+    else:
+        var_dict = {'real_lon': real_lon, 'real_lat':real_lat,  'SW_up': SW_up, 'SW_down': SW_down,
+                    'LH': LH, 'SH': SH, 'LW_up': LW_up, 'LW_down': LW_down, 'LW_net': LW_net, 'SW_net': SW_net, 'Ts': Ts}
+    return var_dict
+
 # Load models in for times of interest: (59, 68) for time of flight, (47, 95) for midday-midnight (discard first 12 hours as spin-up)
 #HM_vars = load_model('Hallett_Mossop', (11,21))
-#RA1M_mod_vars = load_model(config = 'RA1M_mod_24', flight_date = '20110118T0000', times = (47,95))
-#RA1T_mod_vars = load_model('RA1T_mod_24',(59,68))
-#RA1T_vars = load_model('RA1T_24', (59,68)) # 1 hr means
-#RA1M_vars = load_model('RA1M_24', (59,68))
-#CASIM_vars = load_model('CASIM_24', (59,68))
-#DeMott_vars = load_model('DeMott', (59,68))
-#fl_av_vars = load_model('fl_av')
-#model_runs = [RA1M_vars, RA1M_mod_vars,RA1T_vars, RA1T_mod_vars]#, CASIM_vars fl_av_vars, ]
+RA1M_mod_vars = load_model(config = 'RA1M_mod_24', flight_date = '20110118T0000', times = (47,95))
+RA1T_mod_vars = load_model(config ='RA1T_mod_24', flight_date = '20110118T0000', times = (47,95))
+RA1T_vars = load_model(config ='RA1T_24', flight_date = '20110118T0000', times = (47,95))
+RA1M_vars = load_model(config ='RA1M_24', flight_date = '20110118T0000', times = (47,95))
+CASIM_vars = load_model(config ='CASIM_24', flight_date = '20110118T0000', times = (47,95))
+DeMott_vars = load_model(config ='DeMott', flight_date = '20110118T0000', times = (47,95))
+#fl_av_vars = load_model(config ='fl_av', flight_date = '20110118T0000', times = (47,95))
+model_runs = [RA1M_vars, RA1M_mod_vars,RA1T_vars, RA1T_mod_vars, CASIM_vars,  DeMott_vars]#fl_av_vars,
 
 #t24_vars = load_model('24', (59,68))
 
@@ -157,75 +200,75 @@ def load_obs(flight, flight_date):
     ''' Inputs: flight number as a string, e.g. 'flight159' and flight_date as a string, with date only (not time) in YYYMMDD format, e.g. '20110125' '''
     ## ----------------------------------------------- SET UP VARIABLES --------------------------------------------------##
     ## Load core data
-print('\nYes yes cuzzy, pretty soon you\'re gonna have some nice core data...')
-bsl_path_core = '/data/mac/ellgil82/cloud_data/core_data/core_masin_'+flight_date+'_r001_'+flight+'_50hz.nc'
-cubes = iris.load(bsl_path_core)
-#RH = iris.load_cube(bsl_path_core, 'relative_humidity')
-core_temp = cubes[34] #de-iced temperature
-core_temp = core_temp.data[84:15432] # trim so times match
-core_temp = core_temp -273.15
-plane_lat = iris.load_cube(bsl_path_core, 'latitude')
-plane_lat = plane_lat.data[84:15432]
-plane_lon = iris.load_cube(bsl_path_core, 'longitude')
-plane_lon = plane_lon.data[84:15432]
-plane_alt = iris.load_cube(bsl_path_core, 'altitude')
-plane_alt = plane_alt.data[84:15432]
-core_time =  iris.load_cube(bsl_path_core, 'time')
-core_time = core_time.data[84:15432]
-## Load CIP data
-# Load CIP from .npz
-print('\nOi mate, right now I\'m loading some siiiiick CIP data...')
-path = '/data/mac/ellgil82/cloud_data/Constantino_Oasis_Peninsula/'
-s_file = flight+'_s_v2.npz'
-npz_s=np.load(path+s_file)
-m_file = flight+'_m_v2.npz'
-npz_m = np.load(path + m_file)
-n_file = flight+'_n_v2.npz'
-npz_n = np.load(path + n_file)
-CIP_time = npz_m['time']
-CIP_bound = npz_s['TestPlot_all_y']
-m_all = npz_m['TestPlot_all_y']
-IWC = npz_m['TestPlot_HI_y']+ npz_m['TestPlot_MI_y']
-S_LI = npz_m['TestPlot_LI_y']+npz_m['TestPlot_S_y']
-n_drop_CIP = npz_n['TestPlot_LI_y']+npz_n['TestPlot_S_y']
-# Load CAS data
-CAS_file = '/data/mac/ellgil82/cloud_data/netcdfs/'+flight+'_cas.nc'
-# Create variables
-print ('\nOn dis CAS ting...')
-LWC_cas = iris.load_cube(CAS_file, 'liquid water content calculated from CAS ')
-LWC_cas = LWC_cas.data
-CAS_time = iris.load_cube(CAS_file, 'time')
-CAS_time = CAS_time.data
-aer = iris.load_cube(CAS_file, 'Aerosol concentration spectra measured by cas ')
-n_drop_CAS = np.nansum(aer[8:,:].data, axis=0)
-n_drop =  n_drop_CAS[:15348]
-## ----------------------------------------- PERFORM CALCULATIONS ON DATA --------------------------------------------##
-# Find number concentrations of ice only
-n_ice = npz_s['TestPlot_HI_z']+npz_s['TestPlot_MI_z']
-n_ice = n_ice * 2. # correct data (as advised by TLC and done by Constantino for their 2016 and 2017 papers)
-n_ice = n_ice/1000 #in cm-3
-n_ice = n_ice[1:]
-CIP_mean_ice = []
-j = np.arange(64)
-for i in j:#
-    m = np.mean(n_ice[:,i])
-    CIP_mean_ice = np.append(CIP_mean_ice,m)
-# Convert times
-unix_time = 1295308800
-CIP_real_time = CIP_time + unix_time
-s = pd.Series(CIP_real_time)
-CIP_time = pd.to_datetime(s, unit='s')
-core_time = core_time + unix_time
-core_time = pd.Series(core_time)
-core_time = pd.to_datetime(core_time, unit='s')
-CAS_time = np.ndarray.astype(CAS_time, float)
-CAS_time = CAS_time / 1000
-CAS_real_time = CAS_time + unix_time
-s = pd.Series(CAS_real_time)
-CAS_time = pd.to_datetime(s, unit='s')
-# Make times match
-CAS_time_short = CAS_time[:15348]
-CIP_time_short = CIP_time[1:]
+    print('\nYes yes cuzzy, pretty soon you\'re gonna have some nice core data...')
+    bsl_path_core = '/data/mac/ellgil82/cloud_data/core_data/core_masin_'+flight_date+'_r001_'+flight+'_50hz.nc'
+    cubes = iris.load(bsl_path_core)
+    #RH = iris.load_cube(bsl_path_core, 'relative_humidity')
+    core_temp = cubes[34] #de-iced temperature
+    core_temp = core_temp.data[84:15432] # trim so times match
+    core_temp = core_temp -273.15
+    plane_lat = iris.load_cube(bsl_path_core, 'latitude')
+    plane_lat = plane_lat.data[84:15432]
+    plane_lon = iris.load_cube(bsl_path_core, 'longitude')
+    plane_lon = plane_lon.data[84:15432]
+    plane_alt = iris.load_cube(bsl_path_core, 'altitude')
+    plane_alt = plane_alt.data[84:15432]
+    core_time =  iris.load_cube(bsl_path_core, 'time')
+    core_time = core_time.data[84:15432]
+    ## Load CIP data
+    # Load CIP from .npz
+    print('\nOi mate, right now I\'m loading some siiiiick CIP data...')
+    path = '/data/mac/ellgil82/cloud_data/Constantino_Oasis_Peninsula/'
+    s_file = flight+'_s_v2.npz'
+    npz_s=np.load(path+s_file)
+    m_file = flight+'_m_v2.npz'
+    npz_m = np.load(path + m_file)
+    n_file = flight+'_n_v2.npz'
+    npz_n = np.load(path + n_file)
+    CIP_time = npz_m['time']
+    CIP_bound = npz_s['TestPlot_all_y']
+    m_all = npz_m['TestPlot_all_y']
+    IWC = npz_m['TestPlot_HI_y']+ npz_m['TestPlot_MI_y']
+    S_LI = npz_m['TestPlot_LI_y']+npz_m['TestPlot_S_y']
+    n_drop_CIP = npz_n['TestPlot_LI_y']+npz_n['TestPlot_S_y']
+    # Load CAS data
+    CAS_file = '/data/mac/ellgil82/cloud_data/netcdfs/'+flight+'_cas.nc'
+    # Create variables
+    print ('\nOn dis CAS ting...')
+    LWC_cas = iris.load_cube(CAS_file, 'liquid water content calculated from CAS ')
+    LWC_cas = LWC_cas.data
+    CAS_time = iris.load_cube(CAS_file, 'time')
+    CAS_time = CAS_time.data
+    aer = iris.load_cube(CAS_file, 'Aerosol concentration spectra measured by cas ')
+    n_drop_CAS = np.nansum(aer[8:,:].data, axis=0)
+    n_drop =  n_drop_CAS[:15348]
+    ## ----------------------------------------- PERFORM CALCULATIONS ON DATA --------------------------------------------##
+    # Find number concentrations of ice only
+    n_ice = npz_s['TestPlot_HI_z']+npz_s['TestPlot_MI_z']
+    n_ice = n_ice * 2. # correct data (as advised by TLC and done by Constantino for their 2016 and 2017 papers)
+    n_ice = n_ice/1000 #in cm-3
+    n_ice = n_ice[1:]
+    CIP_mean_ice = []
+    j = np.arange(64)
+    for i in j:#
+        m = np.mean(n_ice[:,i])
+        CIP_mean_ice = np.append(CIP_mean_ice,m)
+    # Convert times
+    unix_time = 1295308800
+    CIP_real_time = CIP_time + unix_time
+    s = pd.Series(CIP_real_time)
+    CIP_time = pd.to_datetime(s, unit='s')
+    core_time = core_time + unix_time
+    core_time = pd.Series(core_time)
+    core_time = pd.to_datetime(core_time, unit='s')
+    CAS_time = np.ndarray.astype(CAS_time, float)
+    CAS_time = CAS_time / 1000
+    CAS_real_time = CAS_time + unix_time
+    s = pd.Series(CAS_real_time)
+    CAS_time = pd.to_datetime(s, unit='s')
+    # Make times match
+    CAS_time_short = CAS_time[:15348]
+    CIP_time_short = CIP_time[1:]
     ## ------------------------------------- COMPUTE WHOLE-FLIGHT STATISTICS ---------------------------------------------##
     # FIND IN-CLOUD LEGS
     # Find only times when flying over ice shelf
@@ -385,13 +428,13 @@ def obs_mod_profile(run):
     plt.show()
 
 
-obs_mod_profile(RA1M_mod_vars)
+#obs_mod_profile(RA1M_mod_vars)
 
 ## Caption: mean modelled water paths (in g kg-1) over the Larsen C ice shelf during the time of flight 152 (16:00Z - 18:00Z)
 
-model_runs = [RA1M_vars, RA1M_mod_vars]#, RA1T_vars, RA1T_mod_vars]#[RA1M_mod_vars, CASIM_vars]
+model_runs = [RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, CASIM_vars]#[RA1M_mod_vars]
 
-obs_mod_profile(RA1M_vars)
+#obs_mod_profile(RA1M_vars)
 
 def column_totals():
     fig, ax = plt.subplots(len(model_runs), 2, sharex='col', figsize=(15, len(model_runs * 5) + 3))
@@ -447,8 +490,8 @@ def column_totals():
     plt.subplots_adjust(hspace=0.08, wspace=0.08, top=0.85)
     #ax[0].set_title('Total column ice', fontname='Helvetica', color='dimgrey', fontsize=28, )
     #ax[1].set_title('Total column liquid', fontname='Helvetica', color='dimgrey', fontsize=28, )
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/v11_mod_comparison_24_RA1M_v_RA1M_mod.png', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/v11_mod_comparison_24_RA1M_v_RA1M_mod.eps', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/v11_mod_comparison_24.png', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/v11_mod_comparison_24.eps', transparent=True)
     plt.show()
 
 column_totals()
@@ -700,15 +743,15 @@ def correl_plot():
 from matplotlib.lines import Line2D
 
 def IWP_time_srs():
-    model_runs = [RA1M_vars, RA1M_mod_vars] #[RA1M_vars, RA1M_mod_vars, fl_av_vars, RA1T_vars, RA1T_mod_vars] CASIM_vars -- CASIM has IWP and LWP in the wrong file stream
-    fig, ax = plt.subplots(len(model_runs),2, sharex='col', figsize=(18,len(model_runs*5)+4))#, squeeze=False)
+    model_runs = [RA1M_vars, RA1M_mod_vars,  RA1T_vars, RA1T_mod_vars, CASIM_vars]#[RA1M_vars, RA1M_mod_vars] fl_av_vars -- CASIM has IWP and LWP in the wrong file stream
+    fig, ax = plt.subplots(len(model_runs),2, sharex='col', figsize=(18,len(model_runs*5)+5))#, squeeze=False)
     ax = ax.flatten()
     ax2 = np.empty_like(ax)
     for axs in ax:
         axs.spines['top'].set_visible(False)
         plt.setp(axs.spines.values(), linewidth=3, color='dimgrey')
         #[l.set_visible(False) for (w, l) in enumerate(axs.yaxis.get_ticklabels()) if w % 2 != 0]
-        [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
+        #[l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
         axs.axvspan(15, 17, edgecolor = 'dimgrey', facecolor='dimgrey', alpha=0.5)
     def my_fmt(x,p):
         return {0}.format(x) + ':00'
@@ -722,7 +765,7 @@ def IWP_time_srs():
         ax[plot].plot(run['IWP'].coord('time').points, (np.mean(run['IWP'][:, 199:201, 199:201].data, axis = (1,2))), label = 'AWS14 IWP', linewidth = 3, linestyle = '--', color = 'darkred')
         ax[plot].plot(run['IWP'].coord('time').points, np.mean(run['IWP'][:,161:163, 182:184].data, axis = (1,2)), label='AWS15 IWP', linewidth=3, linestyle='--',color='darkblue')
         ax[plot].plot(run['IWP'].coord('time').points, np.mean(run['IWP'][:,111:227, 162:213].data, axis = (1,2)), label='Cloud box IWP', linewidth=3, color='k')
-        ax[plot].text(x=13, y=250, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
+        ax[plot].text(0.1, 0.85, transform=ax[plot].transAxes, s=lab_dict[plot], fontsize=32, fontweight='bold',color='dimgrey')
         #plt.setp(ax[plot].get_yticklabels()[-1], visible=False)
         ax[plot].set_xlim(12, 23)
         ax[plot].set_ylim(0,300)
@@ -738,16 +781,15 @@ def IWP_time_srs():
         ax[plot+1].plot(run['LWP'].coord('time').points, (np.mean(run['LWP'][:, 199:201, 199:201].data, axis = (1,2))), label = 'AWS14 LWP', linewidth = 3, linestyle = '--', color = 'darkred')
         ax[plot+1].plot(run['LWP'].coord('time').points, np.mean(run['LWP'][:,161:163, 182:184].data, axis = (1,2)), label='AWS15 LWP', linewidth=3, linestyle='--',color='darkblue')
         ax[plot+1].plot(run['LWP'].coord('time').points, np.mean(run['LWP'][:,111:227, 162:213].data, axis = (1,2)), label='Cloud box LWP', linewidth=3, color='k')
-        ax[plot+1].text(x=13, y=250, s=lab_dict[plot+1], fontsize=32, fontweight='bold', color='dimgrey')
+        ax[plot+1].text(0.1, 0.85, transform = ax[plot+1].transAxes, s=lab_dict[plot+1], fontsize=32, fontweight='bold', color='dimgrey')
         ax[plot+1].tick_params(axis='both', labelsize=28, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
         #[l.set_visible(False) for (i, l) in enumerate(ax[plot+1].yaxis.get_ticklabels()) if i % 2 != 0]
         #[l.set_visible(False) for (i, l) in enumerate(ax[plot + 1].xaxis.get_ticklabels()) if i % 2 != 0]
         [w.set_linewidth(2) for w in ax[plot].spines.itervalues()]
         [w.set_linewidth(2) for w in ax[plot+1].spines.itervalues()]
         #ax[plot+1].set_xlim(run['IWP'].coord('time').points[1], run['IWP'].coord('time').points[-1])
-        titles = ['    RA1M', '    RA1M','RA1M_mod', 'RA1M_mod']#['    RA1M','    RA1M', 'RA1M_mod', 'RA1M_mod', '     fl_av','     fl_av', '    RA1T', '    RA1T', 'RA1T_mod','RA1T_mod', '   CASIM', '   CASIM']
-        ax[plot].text(0.83, 1.05, transform=ax[plot].transAxes, s=titles[plot], fontsize=28,
-                      color='dimgrey')
+        titles = ['    RA1M', '    RA1M','RA1M_mod', 'RA1M_mod', '    RA1T', '    RA1T', 'RA1T_mod','RA1T_mod', '   CASIM', '   CASIM']#['    RA1M','    RA1M', 'RA1M_mod', 'RA1M_mod', '     fl_av','     fl_av', '    RA1T', '    RA1T', 'RA1T_mod','RA1T_mod', '   CASIM', '   CASIM']
+        ax[plot].text(0.83, 1.05, transform=ax[plot].transAxes, s=titles[plot], fontsize=28,color='dimgrey')
         print('\nDONE!')
         print('\nNEEEEEXT')
         plot = plot + 2
@@ -761,17 +803,17 @@ def IWP_time_srs():
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey')
     lgd.get_frame().set_linewidth(0.0)
-    plt.subplots_adjust(left=0.22, bottom=0.15, right=0.78, top=0.95, wspace = 0.15, hspace = 0.15)
-    fig.text(0.5, 0.1, 'Time (hours)', fontsize=24, fontweight = 'bold', ha = 'center', va = 'center', color = 'dimgrey')
+    plt.subplots_adjust(left=0.22, bottom=0.17, right=0.78, top=0.95, wspace = 0.15, hspace = 0.15)
+    fig.text(0.5, 0.08, 'Time (hours)', fontsize=24, fontweight = 'bold', ha = 'center', va = 'center', color = 'dimgrey')
     fig.text(0.08, 0.55, 'IWP (g kg$^{-1}$)', fontsize=30, ha= 'center', va='center', rotation = 0, color = 'dimgrey')
     fig.text(0.92, 0.55, 'LWP (g kg$^{-1}$)', fontsize=30, ha='center', va='center', color = 'dimgrey', rotation=0)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/vn11_water_path_time_srs_RA1M_v_RA1M_mod.png')
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/vn11_water_path_time_srs_RA1M_v_RA1M_mod.eps')
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/vn11_water_path_time_srs.png')
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/vn11_water_path_time_srs.eps')
     plt.show()
 
 
 
-IWP_time_srs()
+#IWP_time_srs()
 
 
 def all_mod_plot(run1, run2, run3, run4):
@@ -893,23 +935,18 @@ def dif_plot():
 
 #dif_plot()
 
-def SEB_correl():
-    fig, ax = plt.subplots(2, 2, sharex='col', figsize=(18, 15))  # , squeeze=False)
+RA1M_SEB = load_SEB(config = 'RA1M_24', flight_date= '20110118T0000')
+RA1M_mod_SEB = load_SEB(config = 'RA1M_mod_24', flight_date= '20110118T0000Z')
+
+model_runs = ['RA1M_SEB']
+
+def SEB_correl(runSEB, runMP, times):
+    fig, ax = plt.subplots(len(model_runs),2, sharex='col', figsize=(18, 15), subplot_kw = {'aspect':1})  # , squeeze=False)
     ax = ax.flatten()
     lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i', 9: 'j', 10: 'k', 11: 'l' }
     plot = 0
-    IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_liq, drop_profile, drop_array, nconc_ice,\
-    box_IWC, box_LWC, box_nconc_ice, box_nconc_liq, n_ice_profile = load_obs()
-    var_names = ['cloud \nice content', 'cloud \nliquid content']
-    for axs in ax:
-        axs.spines['top'].set_visible(False)
-        plt.setp(axs.spines.values(), linewidth=2, color='dimgrey', )
-        axs.set(adjustable='box-forced', aspect='equal')
-        axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-        [l.set_visible(False) for (w, l) in enumerate(axs.yaxis.get_ticklabels()) if w % 2 != 0]
-        [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
     for run in model_runs:
-        slope, intercept, r2, p, sterr = scipy.stats.linregress(IWC_profile, run['mean_QCF'])
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(np.mean(runSEB['LW_down'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)), np.mean(runMP['LWP'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)))
         if p <= 0.01:
             ax[plot].text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
                           s='r$^{2}$ = %s' % np.round(r2, decimals=2), fontweight = 'bold', transform=ax[plot].transAxes, size=24,
@@ -918,11 +955,11 @@ def SEB_correl():
             ax[plot].text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
                           s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax[plot].transAxes, size=24,
                           color='dimgrey')
-        ax[plot].scatter(IWC_profile, run['mean_QCF'], color = '#f68080', s = 50)
-        ax[plot].set_xlim(min(chain(IWC_profile, run['mean_QCF'])), max(chain(IWC_profile, run['mean_QCF'])))
-        ax[plot].set_ylim(min(chain(IWC_profile, run['mean_QCF'])), max(chain(IWC_profile, run['mean_QCF'])))
+        ax[plot].scatter(np.mean(runSEB['LW_down'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)), np.mean(runMP['LWP'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)), color = '#f68080', s = 50)
+        ax[plot].set_ylim(min(np.mean(runMP['LWP'][times[0]:times[1],199:201, 199:201].data, axis = (1,2))), max(np.mean(runMP['LWP'][times[0]:times[1],199:201, 199:201].data, axis = (1,2))))
+        ax[plot].set_xlim(min(np.mean(runSEB['LW_down'][times[0]:times[1],199:201, 199:201].data, axis = (1,2))), max(np.mean(runSEB['LW_down'][times[0]:times[1],199:201, 199:201].data, axis = (1,2))))
         ax[plot].plot(ax[plot].get_xlim(), ax[plot].get_ylim(), ls="--", c = 'k', alpha = 0.8)
-        slope, intercept, r2, p, sterr = scipy.stats.linregress(LWC_profile, run['mean_QCL'])
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(np.mean(runSEB['SW_down'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)), np.mean(runMP['IWP'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)))
         if p <= 0.01:
             ax[plot+1].text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
                           s='r$^{2}$ = %s' % np.round(r2, decimals=2), fontweight='bold', transform=ax[plot+1].transAxes,
@@ -932,18 +969,17 @@ def SEB_correl():
             ax[plot+1].text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
                           s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax[plot+1].transAxes, size=24,
                           color='dimgrey')
-        ax[plot+1].scatter(LWC_profile, run['mean_QCL'], color='#f68080', s=50)
-        ax[plot+1].set_xlim(min(chain(LWC_profile, run['mean_QCL'])), max(chain(LWC_profile, run['mean_QCL'])))
-        ax[plot+1].set_ylim(min(chain(LWC_profile, run['mean_QCL'])), max(chain(LWC_profile, run['mean_QCL'])))
+        ax[plot+1].scatter(np.mean(runSEB['SW_down'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)), np.mean(runMP['IWP'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)), color='#f68080', s=50)
+        ax[plot+1].set_ylim(min(np.mean(runMP['IWP'][times[0]:times[1], 199:201, 199:201].data, axis=(1, 2))), max(np.mean(runMP['IWP'][times[0]:times[1], 199:201, 199:201].data, axis=(1, 2))))
+        ax[plot+1].set_xlim(min(np.mean(runSEB['SW_down'][times[0]:times[1], 199:201, 199:201].data, axis=(1, 2))),max(np.mean(runSEB['SW_down'][times[0]:times[1], 199:201, 199:201].data, axis=(1, 2))))
         ax[plot+1].plot(ax[plot+1].get_xlim(), ax[plot+1].get_ylim(), ls="--", c='k', alpha=0.8)
-         #'r$^{2}$ = %s' % r2,
-        ax[plot].set_xlabel('Observed %s' % var_names[0], size = 24, color = 'dimgrey', rotation = 0, labelpad = 10)
-        ax[plot].set_ylabel('Modelled %s' % var_names[0], size = 24, color = 'dimgrey', rotation =0, labelpad= 80)
-        ax[plot+1].set_xlabel('Observed %s' % var_names[1], size = 24, color = 'dimgrey', rotation = 0, labelpad = 10)
-        ax[plot+1].set_ylabel('Modelled %s' % var_names[1], size = 24, color = 'dimgrey', rotation =0, labelpad= 80)
+        ax[plot].set_xlabel('Modelled LW$_{\downarrow}$ (W m$^{-2}$)', size = 24, color = 'dimgrey', rotation = 0, labelpad = 10)
+        ax[plot].set_ylabel('Modelled LWP (g m$^{-2}$)', size = 24, color = 'dimgrey', rotation =0, labelpad= 80)
+        ax[plot+1].set_xlabel('Modelled SW$_{\downarrow}$ (W m$^{-2}$)', size = 24, color = 'dimgrey', rotation = 0, labelpad = 10)
+        ax[plot+1].set_ylabel('Modelled IWP (g m$^{-2}$)', size = 24, color = 'dimgrey', rotation =0, labelpad= 80)
         lab = ax[plot].text(0.1, 0.85, transform = ax[plot].transAxes, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
         lab2 = ax[plot+1].text(0.1, 0.85, transform = ax[plot+1].transAxes, s=lab_dict[plot+1], fontsize=32, fontweight='bold', color='dimgrey')
-        titles = ['    RA1M','    RA1M','RA1M_mod','RA1M_mod','     fl_av', '     fl_av','    RA1T','    RA1T',  'RA1T_mod', 'RA1T_mod','   CASIM','   CASIM']
+        titles = ['    RA1M','    RA1M']#,'RA1M_mod','RA1M_mod','     fl_av', '     fl_av','    RA1T','    RA1T',  'RA1T_mod', 'RA1T_mod','   CASIM','   CASIM']
         ax[plot].text(0.83, 1.1, transform=ax[plot].transAxes, s=titles[plot], fontsize=28, color='dimgrey')
         plt.setp(ax[plot].get_xticklabels()[-2], visible=False)
         plt.setp(ax[plot].get_yticklabels()[-2], visible=False)
@@ -954,7 +990,15 @@ def SEB_correl():
         ax[plot].spines['right'].set_visible(False)
         ax[plot+1].spines['left'].set_visible(False)
         plot = plot + 2
-        plt.subplots_adjust(top = 0.98, hspace = 0.15, bottom = 0.05, wspace = 0.15, left = 0.25, right = 0.75)
+    for axs in ax:
+        axs.spines['top'].set_visible(False)
+        plt.setp(axs.spines.values(), linewidth=2, color='dimgrey', )
+        axs.set(adjustable='box-forced', aspect='equal')
+        axs.set_aspect('equal', 'box')
+        axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+        [l.set_visible(False) for (w, l) in enumerate(axs.yaxis.get_ticklabels()) if w % 2 != 0]
+        [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
+    plt.subplots_adjust(top = 0.98, hspace = 0.15, bottom = 0.05, wspace = 0.15, left = 0.25, right = 0.75)
     #plt.setp(ax[5].get_xticklabels()[-2], visible=False)
     #plt.setp(ax[6].get_xticklabels()[-2], visible=False)
     #plt.setp(ax[1].get_xticklabels()[-3], visible=False)
@@ -964,7 +1008,10 @@ def SEB_correl():
     #plt.setp(ax[6].get_yticklabels()[-2], visible=False)
     #plt.setp(ax[1].get_yticklabels()[-3], visible=False)
     #plt.setp(ax[2].get_yticklabels()[-3], visible=False)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/correlations_24.png', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/correlations_24.eps', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/correlations_24.pdf', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp.png', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp.eps', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp.pdf', transparent=True)
     plt.show()
+
+
+SEB_correl(RA1M_SEB, RA1M_vars, times = (69,79))
