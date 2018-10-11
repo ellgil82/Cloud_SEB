@@ -107,7 +107,7 @@ def load_AWS(station):
     Jan18 = AWS.loc[(AWS['Day'] == 18)]# & (AWS['Hour'] >= 12)]
     #Jan18 = Jan18.append(AWS.loc[(AWS['Day'] == 19) & (AWS['Hour'] == 0)])
     Day_mean = Jan18.mean(axis=0) # Calculates averages for whole day
-    Flight = Jan18.loc[(Jan18['Hour'] >=15) &  (Jan18['Hour'] <= 17)]
+    Flight = Jan18.loc[(Jan18['Hour'] >= 12)]#[(Jan18['Hour'] >=15) &  (Jan18['Hour'] <= 17)]
     Flight_mean = Flight.mean(axis=0) # Calculates averages over the time period sampled (15:00 - 17:00)
     return Flight_mean, Day_mean, Jan18
 
@@ -137,23 +137,23 @@ AWS15_real_lat = real_lat[AWS15_lat]
 
 os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/t24/')
 
-def calc_SEB(run):
+def calc_SEB(run, times):
     AWS14_SEB_flight = AWS14_SEB_flight_mean['SWnet_corr'] + AWS14_SEB_flight_mean['LWnet_corr'] + AWS14_SEB_flight_mean['Hsen'] + AWS14_SEB_flight_mean['Hlat'] - AWS14_SEB_flight_mean['Gs']
     AWS14_melt_flight = AWS14_SEB_flight_mean['melt_energy']
     AWS14_SEB_day = AWS14_SEB_day_mean['SWnet_corr'] + AWS14_SEB_day_mean['LWnet_corr'] + AWS14_SEB_day_mean['Hsen'] + AWS14_SEB_day_mean['Hlat']
     AWS14_melt_day = AWS14_SEB_day_mean['melt_energy']
-    Model_SEB_flight_AWS14 = np.mean(run['LW_net'][59:68,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data) + \
-                         np.mean(run['SW_net'][59:68,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data) + \
-                         np.mean(run['SH'][59:68,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)]) + \
-                         np.mean(run['LH'][59:68,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)])
+    Model_SEB_flight_AWS14 = np.mean(run['LW_net'][times[0]:times[1],(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data) + \
+                         np.mean(run['SW_net'][times[0]:times[1],(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data) + \
+                         np.mean(run['SH'][times[0]:times[1],(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)]) + \
+                         np.mean(run['LH'][times[0]:times[1],(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)])
     Model_SEB_day_AWS14 = np.mean(run['LW_net'][:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data) + \
                              np.mean(run['SW_net'][:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data) + \
                           np.mean(run['SH'][:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)]) + \
                            np.mean(run['LH'][:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)])
-    Model_SEB_flight_AWS15 = np.mean(run['LW_net'][68:,(AWS15_lon-1):(AWS15_lon+1), (AWS15_lat-1):(AWS15_lat+1)].data) + \
-                             np.mean(run['SW_net'][68:,(AWS15_lon-1):(AWS15_lon+1), (AWS15_lat-1):(AWS15_lat+1)].data) + \
-                             np.mean(run['SH'][68:,(AWS15_lon-1):(AWS15_lon+1), (AWS15_lat-1):(AWS15_lat+1)]) + \
-                             np.mean(run['LH'][68:,(AWS15_lon-1):(AWS15_lon+1), (AWS15_lat-1):(AWS15_lat+1)])
+    Model_SEB_flight_AWS15 = np.mean(run['LW_net'][times[0]:times[1],(AWS15_lon-1):(AWS15_lon+1), (AWS15_lat-1):(AWS15_lat+1)].data) + \
+                             np.mean(run['SW_net'][times[0]:times[1],(AWS15_lon-1):(AWS15_lon+1), (AWS15_lat-1):(AWS15_lat+1)].data) + \
+                             np.mean(run['SH'][times[0]:times[1],(AWS15_lon-1):(AWS15_lon+1), (AWS15_lat-1):(AWS15_lat+1)]) + \
+                             np.mean(run['LH'][times[0]:times[1],(AWS15_lon-1):(AWS15_lon+1), (AWS15_lat-1):(AWS15_lat+1)])
     Model_SEB_day_AWS15 = np.mean(run['LW_net'][:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data) + \
                              np.mean(run['SW_net'][:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data) + \
                           np.mean(run['SH'][:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)]) + \
@@ -166,22 +166,29 @@ def calc_SEB(run):
     melt_masked_flight = np.ma.masked_where(run['Ts']  < -0.025, Model_SEB_flight_AWS14)
     return Model_SEB_day_AWS14, Model_SEB_day_AWS15, Model_SEB_flight_AWS14, Model_SEB_flight_AWS15, melt_masked_day, melt_masked_flight, AWS14_SEB_flight, AWS14_SEB_day, AWS14_melt_flight, AWS14_melt_day
 
-Model_SEB_day_AWS14, Model_SEB_day_AWS15, Model_SEB_flight_AWS14, Model_SEB_flight_AWS15, melt_masked_day, melt_masked_flight, obs_SEB_AWS14_flight,  obs_SEB_AWS14_day, obs_melt_AWS14_flight, obs_melt_AWS14_day = calc_SEB(RA1T_mod_vars)
+
 
 ## ------------------------------------------- CALCULATE BIASES ----------------------------------------------------- ##
-def calc_bias(run, times, day): # times should be in tuple format, i.e. (start, end)
+def calc_bias(run, times, day): # times should be in tuple format, i.e. (start, end) and day should be True or False
     AWS14_bias = []
     AWS15_bias = []
-    for i, j in zip([run['LW_down'][times[0]:times[1],:,:].data, run['LW_up'][times[0]:times[1],0,:,:].data, run['LW_net'][times[0]:times[1],:,:].data, run['SW_down'][times[0]:times[1],:,:].data,
-                     run['SW_up'][times[0]:times[1],0,:,:].data, run['SW_net'][times[0]:times[1],:,:].data, run['LH'][times[0]:times[1],:,:], run['SH'][times[0]:times[1],:,:]],
+    for i, j in zip([run['LW_down'].data, run['LW_up'][:,0,:,:].data, run['LW_net'].data, run['SW_down'].data,run['SW_up'][:,0,:,:].data, run['SW_net'].data, run['LH'], run['SH']],
                     ['LWin', 'LWout_corr', 'LWnet_corr','SWin_corr', 'SWout','SWnet_corr','Hlat','Hsen']):
-        AWS14_bias.append((np.mean(i[:,  (AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)])) - AWS14_SEB_flight_mean[j])
+        if day == True:
+            AWS14_bias.append((np.mean(i[:,  (AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)])) - AWS14_SEB_day_mean[j])
+        elif day == False:
+            AWS14_bias.append((np.mean(i[times[0]:times[1], (AWS14_lon - 1):(AWS14_lon + 1), (AWS14_lat - 1):(AWS14_lat + 1)])) - AWS14_SEB_flight_mean[j])
+        else:
+            print('\'day\' must be set to True or False')
     if day == True:
         AWS14_bias.append(melt_masked_day - AWS14_SEB_day_mean['melt_energy'])
-    else:
+    elif day == False:
         AWS14_bias.append(melt_masked_flight - AWS14_SEB_flight_mean['melt_energy'])
     for i, j in zip([run['LW_down'].data, run['LW_up'][:,0,:,:].data,  run['SW_down'].data, run['SW_up'][:,0,:,:].data],['Lin', 'Lout', 'Sin', 'Sout']):
-        AWS15_bias.append((np.mean(i[:, (AWS15_lon - 1):(AWS15_lon + 1), (AWS15_lat - 1):(AWS15_lat + 1)])) - AWS15_flight_mean[j])
+        if day == True:
+            AWS15_bias.append((np.mean(i[:, (AWS15_lon - 1):(AWS15_lon + 1), (AWS15_lat - 1):(AWS15_lat + 1)])) - AWS15_day_mean[j])
+        elif day == False:
+            AWS15_bias.append((np.mean(i[times[0]:times[1], (AWS15_lon - 1):(AWS15_lon + 1), (AWS15_lat - 1):(AWS15_lat + 1)])) - AWS15_flight_mean[j])
     return AWS14_bias, AWS15_bias
 
 def calc_vals(run):
@@ -191,9 +198,12 @@ def calc_vals(run):
         AWS14_vals.append(np.mean(i[59:68,  (AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data))
         AWS15_vals.append(np.mean(i[59:68,  (AWS15_lon-1):(AWS15_lon+1), (AWS15_lat-1):(AWS15_lat+1)].data))
 
-AWS14_bias, AWS15_bias = calc_bias(RA1T_mod_vars, times = (59,68), day = False)
+Model_SEB_day_AWS14, Model_SEB_day_AWS15, Model_SEB_flight_AWS14, Model_SEB_flight_AWS15, melt_masked_day, melt_masked_flight, \
+obs_SEB_AWS14_flight,  obs_SEB_AWS14_day, obs_melt_AWS14_flight, obs_melt_AWS14_day = calc_SEB(RA1T_vars, times = (47,95))
 
-print AWS14_bias
+AWS14_bias, AWS15_bias = calc_bias(RA1T_vars, times = (47,95), day = False)
+
+print AWS14_bias, AWS15_bias
 
 ## -------------------------------------------------- PLOTTING ------------------------------------------------------ ##
 
