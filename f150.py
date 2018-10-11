@@ -72,6 +72,16 @@ def load_model(config, flight_date, times): #times should be a range in the form
         CDNC_95 = np.percentile(CDNC[times[0]:times[1], :40, 115:150, 130:185].data, 95, axis=(0, 1, 2))
     except iris.exceptions.ConstraintMismatchError:
         print('\n Nope. Soz. Not \'ere. \n')
+    print('\nAir temperature') # as above, and convert from kg m-2 to g m-2
+    try:
+        T = iris.load_cube(pa, iris.Constraint(name='air_temperature'))
+        T.convert_units('celsius')
+    except iris.exceptions.ConstraintMismatchError:
+        print('\n Can\'t find \"air_temperature\" in this file, searching STASH...\n')
+        T = iris.load_cube(pa, iris.Constraint(STASH='m01s16i004'))
+        T.convert_units('celsius')
+    except iris.exceptions.ConstraintMismatchError:
+        print('\n Nope. Soz. Not \'ere. \n')
     lsm = iris.load_cube(pa, 'land_binary_mask')
     orog = iris.load_cube(pa, 'surface_altitude')
     # Rotate data to ordinary lats/lons and convert units to g kg-1 and g m-2
@@ -86,24 +96,31 @@ def load_model(config, flight_date, times): #times should be a range in the form
     # Convert times to useful ones
     for i in [IWP, LWP, ice_mass_frac, liq_mass_frac,]: #qc
         i.coord('time').convert_units('hours since 2011-01-18 00:00')
-    ## ---------------------------------------- CREATE MODEL VERTICAL PROFILES ------------------------------------------ ##
+    ## ---------------------------------------- CREATE MODEL TRANSECTS ------------------------------------------ ##
     # Create mean vertical profiles for region of interest
     # region of interest = ice shelf. Longitudes of ice shelf along transect =
     # OR: region of interest = only where aircraft was sampling layer cloud: time 53500 to 62000 = 14:50 to 17:00
     # Define box: -62 to -61 W, -66.9 to -68 S
     # Coord: lon = 188:213, lat = 133:207, time = 4:6 (mean of preceding hours)
+    # Calculate number concentration averages only when the instrument detects liquid/ice particles
     print('\ncreating transects geez...')
     box_QCF = ice_mass_frac[times[0]:times[1], :40, 115:150, 130:185].data
     box_QCL = liq_mass_frac[times[0]:times[1], :40, 115:150, 130:185].data
     transect_box_QCF = ice_mass_frac[times[0]:times[1], :40, 127:137, 130:185].data
     transect_box_QCL = liq_mass_frac[times[0]:times[1], :40, 127:137, 130:185].data
+    # mask grid cells where no cloud is present so as not to bias the mean according to mass fraction threshold given
+    # in Gettelman et al. (2010) JGR 115 (D18) 1-19. doi:10.1029/2009JD013797
+    QCF_transect = np.ma.masked_where(np.mean(ice_mass_frac[:,:,127:137, 130:185 ].data, axis = (0,1,2)),
+                                      np.mean(ice_mass_frac[:,:,127:137, 130:185 ].data, axis = (0,1,2)) <= 0.005)
+    QCL_transect = np.ma.masked_where(np.mean(liq_mass_frac[:, :, 127:137, 130:185].data, axis=(0, 1, 2)),
+                                      np.mean(liq_mass_frac[:, :, 127:137, 130:185].data, axis=(0, 1, 2)) <= 0.005)
+    transect_box_T = T[times[0]:times[1], :40, 127:137, 130:185].data
     box_mean_IWP = np.mean(IWP[times[0]:times[1], 115:150, 130:185].data)#, axis = (0,1,2))
     box_mean_LWP = np.mean(LWP[times[0]:times[1], 115:150, 130:185].data)#, axis =(0,1,2))
-    QCF_transect = np.mean(ice_mass_frac[:,:,127:137, 130:185 ].data, axis = (0,1,2))
-    QCL_transect = np.mean(liq_mass_frac[:, :, 127:137, 130:185 ].data, axis=(0, 1, 2))
     IWP_transect = np.mean(IWP[:, 127:137, 130:185 ].data, axis = (0,1))
     LWP_transect = np.mean(LWP[:, 127:137, 130:185  ].data, axis = (0,1))
-    QCL_profile = np.mean(ice_mass_frac[:,:,127:137, 130:185].data, axis = (0,2,3))
+    QCL_profile = np.mean(liq_mass_frac[:,:,127:137, 130:185].data, axis = (0,2,3))
+    T_profile = np.mean(T[:,:,127:137, 130:185].data, axis = (0,2,3))
     # Calculate 5th and 95th percentiles for each longitude bin, and for vertical profile
     ice_95 = np.percentile(box_QCF, 95, axis=(0,1,2))
     ice_5 = np.percentile(box_QCF, 5, axis=(0,1,2))
@@ -120,16 +137,18 @@ def load_model(config, flight_date, times): #times should be a range in the form
                      'vert_95': vert_95, 'LWP_transect': LWP_transect,'IWP_transect': IWP_transect, 'QCL_profile': QCL_profile,
                     'QCF_transect': QCF_transect, 'QCL_transect': QCL_transect, 'QCF': ice_mass_frac, 'QCL': liq_mass_frac,
                     'CDNC': CDNC, 'ice_number': ice_number, 'CDNC_transect': CDNC_transect, 'ice_num_transect': ice_num_transect,
-                    'CDNC_5': CDNC_5, 'CDNC_95': CDNC_95}
+                    'CDNC_5': CDNC_5, 'CDNC_95': CDNC_95, 'T_profile': T_profile, 'transect_box_T': transect_box_T}
     else:
         var_dict = {'real_lon': real_lon, 'real_lat':real_lat,   'lsm': lsm, 'orog': orog,  'IWP': IWP, 'LWP':LWP, 'ice_5': ice_5,
                     'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'box_QCF': box_QCF, 'box_QCL': box_QCL, 'vert_5': vert_5,
                      'vert_95': vert_95, 'LWP_transect': LWP_transect,'IWP_transect': IWP_transect, 'QCL_profile': QCL_profile,
-                    'QCF_transect': QCF_transect, 'QCL_transect': QCL_transect, 'QCF': ice_mass_frac, 'QCL': liq_mass_frac}
+                    'QCF_transect': QCF_transect, 'QCL_transect': QCL_transect, 'QCF': ice_mass_frac, 'QCL': liq_mass_frac,
+                    'T_profile': T_profile, 'transect_box_T': transect_box_T
+                    }
     return  var_dict
 
 # Load models in for times of interest: (59, 68) for time of flight, (47, 95) for midday-midnight (discard first 12 hours as spin-up)
-RA1M_mod_vars = load_model(config = 'RA1M_mods_f150', flight_date = '20110115T1200', times = (0,-1))
+RA1M_mod_vars = load_model(config = 'RA1M_mods_f150', flight_date = '20110115T0000', times = (0,-1))
 Cooper_vars = load_model(config = 'Cooper', flight_date = '20110115T0000', times = (47,95))
 DeMott_vars = load_model(config = 'DeMott', flight_date = '20110115T0000',  times = (47,95))
 #model_runs = [RA1M_vars, RA1M_mod_vars,RA1T_vars, RA1T_mod_vars]#, CASIM_vars fl_av_vars, ]
@@ -234,6 +253,8 @@ def load_obs():
     # Create array of only in-cloud data within box
     IWC_array = []
     LWC_array = []
+    temp_array_ice = []
+    temp_array_liq = []
     alt_array_ice = []
     alt_array_liq = []
     lon_array_liq = []
@@ -247,21 +268,26 @@ def load_obs():
             alt_array_ice.append(plane_alt[i])
             nconc_ice.append(nconc_ice_all[i])
             lon_array_ice.append(plane_lon[i])
+            temp_array_ice.append(core_temp[i])
         elif n_drop[i] > 1.0:  # same threshold as in Lachlan-Cope et al. (2016)
             drop_array.append(n_drop[i])
             LWC_array.append(LWC_cas[i])
             alt_array_liq.append(plane_alt[i])
             lon_array_liq.append(plane_lon[i])
+            temp_array_liq.append(core_temp[i])
     ## Create longitudinal transects
     # Calculate mean values at each height in the model
     # Create bins from model data
     print('\nbinning by altitude...')
     #Load model data to get altitude/longitude bins
-    lon_bins = RA1M_mod_vars['QCF'].coord('longitude')[130:185].points.tolist()
-    alt_bins = RA1M_mod_vars['QCF'].coord('level_height').points.tolist()
+    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/f150/')
+    T = iris.load_cube('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/f150/20110115T0000Z_Peninsula_1p5km_RA1M_mods_f150_pa000.pp', 'air_temperature')
+    alt_bins = T.coord('level_height').points.tolist()
+    real_lon, real_lat = rotate_data(T, 2,3)
+    lon_bins = T.coord('longitude')[130:185].points.tolist()
     # Find index of model longitude bin to which aircraft data would belong
     # Turn data into pandas dataframe
-    d_liq = {'LWC': LWC_array, 'lon_idx': np.digitize(lon_array_liq, bins=lon_bins), 'alt_idx': np.digitize(alt_array_liq, bins=alt_bins), 'alt': alt_array_liq, 'lons': lon_array_liq,  'n_drop': drop_array}
+    d_liq = {'LWC': LWC_array, 'lon_idx': np.digitize(lon_array_liq, bins=lon_bins), 'alt_idx': np.digitize(alt_array_liq, bins=alt_bins), 'alt': alt_array_liq, 'temp': temp_array_liq, 'lons': lon_array_liq,  'n_drop': drop_array}
     d_ice = {'IWC': IWC_array,'n_ice': nconc_ice, 'lon_idx': np.digitize(lon_array_ice, bins=lon_bins), 'lons': lon_array_ice, }
     df_liq = pd.DataFrame(data = d_liq)
     df_ice = pd.DataFrame(data= d_ice)
@@ -292,6 +318,7 @@ def load_obs():
     LWC_transect2 = grouped_liq[520:].groupby(['lon_idx']).mean()['LWC']
     ice_transect2 = grouped_ice[70:].groupby(['lon_idx']).mean()['n_ice']
     drop_transect2 = grouped_liq[520:].groupby(['lon_idx']).mean()['n_drop']
+    temp_transect = grouped_liq.groupby(['lon_idx']).mean()['temp']
         # Add in some zeros at correct place to make mean transect the right shape for plotting
     def append_1(transect):
         transect = np.append(np.zeros(9), transect)
@@ -301,17 +328,20 @@ def load_obs():
         return transect
     LWC_transect2, drop_transect2 = np.append(LWC_transect2, np.zeros(9)), np.append(drop_transect2, np.zeros(9))
     LWC_transect1, drop_transect1 = append_1(LWC_transect1), append_1(drop_transect1)
+    temp_transect = np.append(temp_transect, np.zeros(10)+np.nan)
+    IWC_transect1 = np.append(IWC_transect1, np.zeros(12))
+    IWC_transect1 = np.insert(IWC_transect1, [15], np.zeros(14))
     ## Create vertical profiles
     grouped_liq = df_liq.set_index(['alt_idx'])
     LWC_profile = grouped_liq[:520].groupby(['alt_idx']).mean()['LWC']
     LWC_profile = np.append(np.zeros(10), LWC_profile)
     LWC_profile = np.insert(LWC_profile, [21], [0,0,0,0,0])
-    return aer, IWC_array, LWC_array, lon_bins, IWC_transect1, LWC_transect1, drop_transect1, alt_array_liq, \
+    return aer, IWC_array, LWC_array, lon_bins, IWC_transect1, LWC_transect1, drop_transect1, alt_array_liq, temp_transect, temp_array_liq,\
            ice_transect1, nice_leg1, drop_leg1, ice_lons_leg1, ice_lons_leg2, IWC_leg1, LWC_leg1, IWC_transect2, \
-           LWC_transect2, drop_transect2, ice_transect2, nice_leg2, drop_leg2,liq_lons_leg1, liq_lons_leg2, IWC_leg2, LWC_leg2, LWC_profile
+           LWC_transect2, drop_transect2, ice_transect2, nice_leg2, drop_leg2,liq_lons_leg1, liq_lons_leg2, IWC_leg2, LWC_leg2, LWC_profile, IWC_transect1
 
-aer, IWC_array, LWC_array,lon_bins, IWC_transect1, LWC_transect1, drop_transect1,  alt_array_liq, ice_transect1, nice_leg1, drop_leg1, ice_lons_leg1, ice_lons_leg2, IWC_leg1, \
-LWC_leg1, IWC_transect2, LWC_transect2, drop_transect2, ice_transect2, nice_leg2, drop_leg2,liq_lons_leg1, liq_lons_leg2, IWC_leg2, LWC_leg2, LWC_profile = load_obs()
+aer, IWC_array, LWC_array,lon_bins, IWC_transect1, LWC_transect1, drop_transect1,  alt_array_liq,  temp_transect, temp_array_liq,ice_transect1, nice_leg1, drop_leg1, ice_lons_leg1, ice_lons_leg2, IWC_leg1, \
+LWC_leg1, IWC_transect2, LWC_transect2, drop_transect2, ice_transect2, nice_leg2, drop_leg2,liq_lons_leg1, liq_lons_leg2, IWC_leg2, LWC_leg2, LWC_profile, IWC_transect1 = load_obs()
 
 
 print 'Drop array means:\n\n Leg 1:'
@@ -494,7 +524,6 @@ def mfrac_transect():
 mfrac_transect()
 
 
-
 from itertools import chain
 import scipy
 
@@ -577,3 +606,56 @@ def correl_plot():
     plt.show()
 
 #correl_plot()
+
+def temp_v_ice():
+    fig = plt.figure(figsize=(20, 7))
+    ax2 = fig.add_subplot(111)
+    ax3 = plt.twinx(ax2)
+    ax4 = plt.twiny(ax2)
+    for ax in ax2, ax3:
+        ax.spines['top'].set_visible(False)
+    [l.set_visible(False) for (w, l) in enumerate(ax2.yaxis.get_ticklabels()) if w % 2 != 0]
+    ax2.spines['right'].set_visible(False)
+    ax3.spines['left'].set_visible(False)
+    ax4.axis('off')
+    plt.setp(ax3.spines.values(), linewidth=3, color='dimgrey')
+    plt.setp(ax2.spines.values(), linewidth=3, color='dimgrey')
+    ax2.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+    ax3.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+    ice_obs = ax2.plot(lon_bins, IWC_transect1, linewidth=2, color='#1b9e77', label='Observed mean ice')
+    ice_mod = ax2.plot(lon_bins, RA1M_mod_vars['QCF_transect'], linewidth=2, linestyle = '--', color='#1b9e77', label='Model mean ice')
+    #scatter_IWC = ax4.scatter(ice_lons_leg1, IWC_leg1, marker='s', color='#1b9e77', label='All liquid', alpha=0.65)
+    T_obs = ax3.plot(lon_bins, temp_transect, lw= 2, color = 'darkred', label = 'Air temperature')
+    T_mod = ax3.plot(lon_bins, np.mean(RA1M_mod_vars['transect_box_T'][69:79, 10:25, :, :], axis=(0, 1, 2)),  linestyle = '--',color = 'darkred', label = 'Model mean temperature')
+    ax2.set_xlim(np.min(lon_bins), np.max(lon_bins))
+    ax3.set_xlim(np.min(lon_bins), np.max(lon_bins))
+    ax2.set_ylim(0, 0.0101)
+    ax3.set_ylim(-22,0)
+    ax2.yaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))
+    ax2.ticklabel_format(style='sci', axis='y', scilimits=(0, 1))
+    ax2.yaxis.get_offset_text().set_fontsize(24)
+    ax2.yaxis.get_offset_text().set_color('dimgrey')
+    plt.setp(ax2.get_yticklabels()[-1], visible=False)
+    ax2.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+    ax2.set_ylabel('Cloud ice \nmass fraction \n(g kg$^{-1}$)', rotation=0, fontname='SegoeUI semibold',
+                   color='dimgrey',fontsize=28, labelpad=10)
+    ax2.set_xlabel('Longitude', fontname='SegoeUI semibold', fontsize=28, color='dimgrey', labelpad=10)
+    ax3.set_ylabel('Air temperature\n ($^{\circ}$C)', rotation=0, fontname='SegoeUI semibold',
+                   color='dimgrey',fontsize=28, labelpad=10)
+    ax2.yaxis.set_label_coords(-0.2, 0.4)
+    ax3.yaxis.set_label_coords(1.25, 0.6)
+    ax3.xaxis.set_visible(False)
+    ax2.set_xticks([-64, -63.5, -63, -62.5])
+    plt.subplots_adjust(bottom=0.15, right=0.76, left=0.2)
+    lgd = plt.legend([ice_obs[0], ice_mod[0], T_obs[0], T_mod[0]], ['Observed ice', 'Modelled ice', 'Observed temperature', 'Modelled temperature'], markerscale=2, bbox_to_anchor = (1.45, 1.1), loc='best', fontsize=20)
+    for ln in lgd.get_texts():
+        plt.setp(ln, color='dimgrey')
+        lgd.get_frame().set_linewidth(0.0)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f150/ice_v_temp_transect.eps', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f150/ice_v_temp_transect.png', transparent=True)
+    plt.show()
+
+
+
+temp_v_ice()
+
