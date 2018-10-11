@@ -32,14 +32,14 @@ def load_mp(var):
     pa = []
     pf = []
     print('\nimporting data from %(var)s...' % locals())
-    for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/'):
+    for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/'):
             if fnmatch.fnmatch(file, '*%(var)s_pb*' % locals()):
                 pb.append(file)
             elif fnmatch.fnmatch(file, '*%(var)s_pa*' % locals()):
                 pa.append(file)
             elif fnmatch.fnmatch(file, '*%(var)s_pf*' % locals()):
                 pf.append(file)
-    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
+    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/')
     print('\nice mass fraction')
     # Load only last 12 hours of forecast (i.e. t+12 to t+24, discarding preceding 12 hours as spin-up) for bottom 40 levels,
     # over the coordinates of the ice shelf (in rotated pole coordinates) and perform unit conversion from kg kg-1 to g kg-1.
@@ -125,11 +125,11 @@ def load_mp(var):
     #liq_PDF = mean_liq.plot.density(color = 'k', linewidth = 1.5)
     #ice_PDF = mean_ice.plot.density(linestyle = '--', linewidth=1.5, color='k')
     altitude = ice_mass_frac.coord('level_height').points/1000
-    var_dict = {'real_lon': real_lon, 'real_lat':real_lat,   'constr_lsm': constr_lsm, 'constr_orog': constr_orog,  'mean_QCF': mean_QCF, 'mean_QCL': mean_QCL, 'altitude': altitude,
-                 'AWS14_mean_QCF': AWS14_mean_QCF, 'AWS14_mean_QCL': AWS14_mean_QCL,
-                'AWS15_mean_QCF': AWS15_mean_QCF, 'AWS15_mean_QCL': AWS15_mean_QCL, 'box_QCF': box_QCF, 'box_QCL': box_QCL,'box_mean_IWP': box_mean_IWP, 'box_mean_LWP': box_mean_LWP, 'IWP': IWP, 'LWP':LWP,
-                'AWS14_mean_IWP': AWS14_mean_IWP, 'AWS14_mean_LWP': AWS14_mean_LWP, 'AWS15_mean_IWP': AWS15_mean_IWP, 'AWS15_mean_LWP': AWS15_mean_LWP,
-                }#'cl_A': cl_A,'qc': qc,'ice_5': ice_5, 'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'min_QCF': min_QCF, 'max_QCF': max_QCF, 'min_QCL': min_QCL,
+    var_dict = { 'constr_lsm': constr_lsm, 'constr_orog': constr_orog,  'mean_QCF': mean_QCF, 'mean_QCL': mean_QCL, 'altitude': altitude, 'mean_IWP': mean_IWP, 'mean_LWP': mean_LWP,
+                 'AWS14_mean_QCF': AWS14_mean_QCF, 'AWS14_mean_QCL': AWS14_mean_QCL,'AWS15_mean_QCF': AWS15_mean_QCF, 'AWS15_mean_QCL': AWS15_mean_QCL,
+                 'IWP': IWP, 'LWP':LWP,'AWS14_mean_IWP': AWS14_mean_IWP, 'AWS14_mean_LWP': AWS14_mean_LWP, 'AWS15_mean_IWP': AWS15_mean_IWP, 'AWS15_mean_LWP': AWS15_mean_LWP,}
+    #'cl_A': cl_A,'qc': qc,'ice_5': ice_5, 'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'min_QCF': min_QCF, 'max_QCF': max_QCF,
+    # 'min_QCL': min_QCL, 'real_lon': real_lon, 'real_lat':real_lat,'box_QCF': box_QCF, 'box_QCL': box_QCL, 'box_mean_IWP': box_mean_IWP, 'box_mean_LWP': box_mean_LWP,
     end = time.time()
     print '\nDone, in {:01d} secs'.format(int(end - start))
     return  var_dict
