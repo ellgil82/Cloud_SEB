@@ -72,8 +72,8 @@ def load_model(config, flight_date, times): #times should be a range in the form
     box_QCL = liq_mass_frac[times[0]:times[1], :40, 133:207, 188:213].data
     box_mean_IWP = np.mean(IWP[times[0]:times[1], 133:207, 188:213].data)#, axis = (0,1,2))
     box_mean_LWP = np.mean(LWP[times[0]:times[1], 133:207, 188:213].data)#, axis =(0,1,2))
-    mean_QCF = np.mean(box_QCF, axis=(0,2,3))
-    mean_QCL = np.mean(box_QCL, axis=(0,2,3)) #0,2,3
+    mean_QCF = np.ma.masked_less_equal(box_QCF, 0.005).mean(axis = (0,2,3))
+    mean_QCL = np.ma.masked_less_equal(box_QCL, 0.005).mean(axis = (0,2,3))
     AWS14_mean_QCF = np.mean(ice_mass_frac[times[0]:times[1], :40, 199:201, 199:201].data, axis=(0, 2, 3))
     AWS14_mean_QCL = np.mean(liq_mass_frac[times[0]:times[1], :40, 199:201, 199:201].data, axis=(0, 2, 3))
     AWS15_mean_QCF = np.mean(ice_mass_frac[times[0]:times[1], :40, 161:163, 182:184].data, axis=(0, 2, 3))
