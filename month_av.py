@@ -45,36 +45,41 @@ def load_mp(var):
     # over the coordinates of the ice shelf (in rotated pole coordinates) and perform unit conversion from kg kg-1 to g kg-1.
     try:
         ice_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_ice_in_air',
-                                                  model_level_number=lambda cell: cell < 40, grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9,
-                                                  forecast_period=lambda cell: cell >= 12.5))
+                                                  model_level_number=lambda cell: cell < 40, grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9))#,forecast_period=lambda cell: cell >= 12.5))
     except iris.exceptions.ConstraintMismatchError:
         print('\n QCF not in this file')
     print('\nliquid mass fraction')
     try:
         liq_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_liquid_water_in_air',
-                                                  model_level_number=lambda cell: cell < 40,grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9,
-                                                  forecast_period=lambda cell: cell >= 12.5))
+                                                  model_level_number=lambda cell: cell < 40,grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9))#, forecast_period=lambda cell: cell >= 12.5))
     except iris.exceptions.ConstraintMismatchError:
         print('\n QCL not in this file')
-    print('\nice water path') # as above, and convert from kg m-2 to g m-2
-    try:
-        IWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i392') & iris.Constraint(grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))# stash code s02i392
-    except iris.exceptions.ConstraintMismatchError:
-        print('\n IWP not in this file')
-    print('\nliquid water path')
-    try:
-        LWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i391') & iris.Constraint(grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))
-    except iris.exceptions.ConstraintMismatchError:
-        print('\n LWP not in this file')
-    constr_lsm = iris.load_cube(pa, iris.Constraint(name ='land_binary_mask', grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9 ))
-    constr_orog = iris.load_cube(pa, iris.Constraint(name ='surface_altitude', grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9 ))
+    if os.getcwd() == '/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test':
+        print('\nice water path') # as above, and convert from kg m-2 to g m-2
+        try:
+            IWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i392') & iris.Constraint(grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))# stash code s02i392
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n IWP not in this file')
+        print('\nliquid water path')
+        try:
+            LWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i391') & iris.Constraint(grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n LWP not in this file')
+        for j in [LWP, IWP,]: #cl_A
+            j.convert_units('g m-2')
+            j.coord('time').convert_units('hours since 2011-01-01 00:00')
+        mean_IWP = np.mean(IWP.data, axis=(2, 3))
+        mean_LWP = np.mean(LWP.data, axis=(2, 3))
+        AWS14_mean_IWP = np.mean(IWP[:, :,165:167, 98:100].data, axis = (2,3))
+        AWS14_mean_LWP = np.mean(LWP[:, :,165:167, 98:100].data, axis = (2,3))
+        AWS15_mean_IWP = np.mean(IWP[:, :,127:129, 81:83].data, axis = (2,3))
+        AWS15_mean_LWP = np.mean(LWP[:, :,127:129, 81:83].data, axis = (2,3))
+    constr_lsm = iris.load_cube(pa, iris.Constraint(name ='land_binary_mask', grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9 ))[0,:,:]
+    constr_orog = iris.load_cube(pa, iris.Constraint(name ='surface_altitude', grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9 ))[0,:,:]
     # Convert units and times to useful ones
     for i in [ice_mass_frac, liq_mass_frac]:#, qc]:
         i.convert_units('g kg-1')
         i.coord('time').convert_units('hours since 2011-01-01 00:00')
-    for j in [LWP, IWP,]: #cl_A
-        j.convert_units('g m-2')
-        j.coord('time').convert_units('hours since 2011-01-01 00:00')
     ## ---------------------------------------- CREATE MODEL VERTICAL PROFILES ------------------------------------------ ##
     # Create mean vertical profiles for region of interest
     # region of interest = ice shelf. Longitudes of ice shelf along transect =
@@ -83,18 +88,15 @@ def load_mp(var):
     # Coord: lon = 188:213, lat = 133:207, time = 4:6 (mean of preceding hours)
     # TESTING: try -63 to -60.8 W, -66.6 to -68.3 = 111:227, 162:213
     print('\ncreating vertical profiles geez...')
-    mean_IWP = np.mean(IWP.data, axis = (2,3))
-    mean_LWP = np.mean(LWP.data, axis = (2,3))
     mean_QCF = np.mean(ice_mass_frac.data, axis=(0,1,3,4))
     mean_QCL = np.mean(liq_mass_frac.data, axis=(0,1,3,4)) #0,2,3
     AWS14_mean_QCF = np.mean(ice_mass_frac[:, :,:40, 165:167, 98:100].data, axis=(0, 1, 3,4))
     AWS14_mean_QCL = np.mean(liq_mass_frac[:, :,:40, 165:167, 98:100].data, axis=(0, 1, 3,4))
     AWS15_mean_QCF = np.mean(ice_mass_frac[:, :,:40, 127:129, 81:83].data, axis=(0, 1, 3,4))
     AWS15_mean_QCL = np.mean(liq_mass_frac[:, :,:40, 127:129, 81:83].data, axis=(0, 1, 3,4))
-    AWS14_mean_IWP = np.mean(IWP[:, :,165:167, 98:100].data, axis = (2,3))
-    AWS14_mean_LWP = np.mean(LWP[:, :,165:167, 98:100].data, axis = (2,3))
-    AWS15_mean_IWP = np.mean(IWP[:, :,127:129, 81:83].data, axis = (2,3))
-    AWS15_mean_LWP = np.mean(LWP[:, :,127:129, 81:83].data, axis = (2,3))
+    altitude = ice_mass_frac.coord('level_height').points / 1000
+    end = time.time()
+    print('\nDone, in {:01d} secs'.format(int(end - start)))
     # Find max and min values at each model level
     #time_mean_QCF = np.mean(box_QCF, axis=0)
     #array = pd.DataFrame()
@@ -124,16 +126,84 @@ def load_mp(var):
     # Calculate PDF of ice and liquid water contents
     #liq_PDF = mean_liq.plot.density(color = 'k', linewidth = 1.5)
     #ice_PDF = mean_ice.plot.density(linestyle = '--', linewidth=1.5, color='k')
-    altitude = ice_mass_frac.coord('level_height').points/1000
-    var_dict = { 'constr_lsm': constr_lsm, 'constr_orog': constr_orog,  'mean_QCF': mean_QCF, 'mean_QCL': mean_QCL, 'altitude': altitude, 'mean_IWP': mean_IWP, 'mean_LWP': mean_LWP,
-                 'AWS14_mean_QCF': AWS14_mean_QCF, 'AWS14_mean_QCL': AWS14_mean_QCL,'AWS15_mean_QCF': AWS15_mean_QCF, 'AWS15_mean_QCL': AWS15_mean_QCL,
-                 'IWP': IWP, 'LWP':LWP,'AWS14_mean_IWP': AWS14_mean_IWP, 'AWS14_mean_LWP': AWS14_mean_LWP, 'AWS15_mean_IWP': AWS15_mean_IWP, 'AWS15_mean_LWP': AWS15_mean_LWP,}
-    #'cl_A': cl_A,'qc': qc,'ice_5': ice_5, 'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'min_QCF': min_QCF, 'max_QCF': max_QCF,
-    # 'min_QCL': min_QCL, 'real_lon': real_lon, 'real_lat':real_lat,'box_QCF': box_QCF, 'box_QCL': box_QCL, 'box_mean_IWP': box_mean_IWP, 'box_mean_LWP': box_mean_LWP,
-    end = time.time()
-    print '\nDone, in {:01d} secs'.format(int(end - start))
+    if os.get_cwd() == '/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test':
+        var_dict = {'constr_lsm': constr_lsm, 'constr_orog': constr_orog, 'altitude': altitude, 'mean_QCF': mean_QCF,
+                    'mean_QCL': mean_QCL, 'AWS14_mean_QCF': AWS14_mean_QCF, 'AWS14_mean_QCL': AWS14_mean_QCL,
+                    'AWS15_mean_QCF': AWS15_mean_QCF, 'AWS15_mean_QCL': AWS15_mean_QCL,'AWS14_mean_IWP': AWS14_mean_IWP,
+                    'AWS15_mean_IWP': AWS15_mean_IWP, 'AWS15_mean_LWP': AWS15_mean_LWP, 'mean_IWP': mean_IWP, 'mean_LWP': mean_LWP}
+    else:
+        var_dict = { 'constr_lsm': constr_lsm, 'constr_orog': constr_orog, 'altitude': altitude, 'mean_QCF': mean_QCF,
+                     'mean_QCL': mean_QCL, 'AWS14_mean_QCF': AWS14_mean_QCF, 'AWS14_mean_QCL': AWS14_mean_QCL,
+                     'AWS15_mean_QCF': AWS15_mean_QCF, 'AWS15_mean_QCL': AWS15_mean_QCL}
     return  var_dict
 
+# 'box_QCF': box_QCF, 'box_QCL': box_QCL,
+#'cl_A': cl_A,'qc': qc,'ice_5': ice_5, 'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'min_QCF': min_QCF, 'max_QCF': max_QCF,'IWP': IWP, 'LWP':LWP,
+# 'min_QCL': min_QCL, 'real_lon': real_lon, 'real_lat':real_lat,'box_mean_IWP': box_mean_IWP, 'box_mean_LWP': box_mean_LWP,'AWS14_mean_LWP': AWS14_mean_LWP,
+
+def load_SEB(config):
+    pa = []
+    pf = []
+    print('\nimporting data from %(config)s...' % locals())
+    for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/'):
+        if fnmatch.fnmatch(file,  '*%(config)s_pf*' % locals()):
+            pf.append(file)
+        elif fnmatch.fnmatch(file,  '*%(config)s_pa*' % locals()):
+            pa.append(file)
+    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/')
+    print('\n downwelling longwave')
+    try:
+        LW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_longwave_flux',grid_longitude=lambda cell: 178.5 < cell < 180.6, grid_latitude=lambda cell: -2.5 < cell < 0.9,
+                                                     forecast_period=lambda cell: cell >= 12.5))
+    except iris.exceptions.ConstraintMismatchError:
+        print('\n Downwelling LW not in this file')
+    print('\ndownwelling shortwave')
+    try:
+        SW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_shortwave_flux_in_air',
+                                                           grid_longitude=lambda cell: 178.5 < cell < 180.6,
+                                                           grid_latitude=lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))
+    except iris.exceptions.ConstraintMismatchError:
+        print('\n Downwelling SW not in this file')
+    # print('\nice water path') # as above, and convert from kg m-2 to g m-2
+    # try:
+    #    IWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i392') & iris.Constraint(grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))# stash code s02i392
+    # except iris.exceptions.ConstraintMismatchError:
+    #    print('\n IWP not in this file')
+    # print('\nliquid water path')
+    # try:
+    #    LWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i391') & iris.Constraint(grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))
+    # except iris.exceptions.ConstraintMismatchError:
+    #    print('\n LWP not in this file')
+    #lsm = iris.load_cube(pa, 'land_binary_mask')
+    #orog = iris.load_cube(pa, 'surface_altitude')
+    #LW_net = iris.load_cube(pf, 'surface_net_downward_longwave_flux')
+    #SH =  iris.load_cube(pf, 'surface_upward_sensible_heat_flux')
+    #LH = iris.load_cube(pf, 'surface_upward_latent_heat_flux')
+    #LW_up = iris.load_cube(pf, 'upwelling_longwave_flux_in_air')
+    #SW_up = iris.load_cube(pf, 'upwelling_shortwave_flux_in_air')
+    #else:
+    #    SW_net = iris.load_cube(pf, 'surface_net_downward_shortwave_flux')
+    #    Ts = iris.load_cube(pa, 'surface_temperature')
+    #    Ts.convert_units('celsius')
+    #for i in [SW_up, LW_up,]:
+    #    real_lon, real_lat = rotate_data(i, 2, 3)
+    #for j in [SW_down, LW_down, LH, SH, LW_net]:#,SW_net_surf,  Ts
+    #    real_lon, real_lat = rotate_data(j, 1, 2)
+    #for k in [lsm, orog]:
+    #    real_lon, real_lat = rotate_data(k, 0, 1)
+    # Convert times to useful ones
+    #for i in [SW_down, SW_up, LW_net, LW_down, LW_up, LH, SH]:#, Ts, SW_net_surf,
+    #    i.coord('time').convert_units('hours since 2011-01-18 00:00')
+    #LH = 0 - LH.data
+    #SH = 0 - SH.data
+    #if config =='CASIM_24':
+    #    var_dict = {'real_lon': real_lon, 'real_lat': real_lat, 'SW_up': SW_up, 'SW_down': SW_down,
+    #                'LH': LH, 'SH': SH, 'LW_up': LW_up, 'LW_down': LW_down, 'LW_net': LW_net, 'SW_net': SW_net}
+    #else:
+    #    var_dict = {'real_lon': real_lon, 'real_lat':real_lat,  'SW_up': SW_up, 'SW_down': SW_down,
+    #                'LH': LH, 'SH': SH, 'LW_up': LW_up, 'LW_down': LW_down, 'LW_net': LW_net, 'SW_net': SW_net, 'Ts': Ts}
+    var_dict = {'LW_down': LW_down, 'SW_down': SW_down}
+    return var_dict
 
 def load_met(var):
     start = time.time()
@@ -235,11 +305,32 @@ def load_met(var):
     return var_dict
 
 Jan_mp = load_mp('lg_t')
+Jan_SEB = load_SEB('lg_t')
 #Jan_met = load_met('lg_t')
+
+
+def load_AWS(station, period):
+    ## --------------------------------------------- SET UP VARIABLES ------------------------------------------------##
+    ## Load data from AWS 14 and AWS 15 for January 2011
+    print('\nDayum grrrl, you got a sweet AWS...')
+    os.chdir('/data/clivarm/wip/ellgil82/AWS/')
+    for file in os.listdir('/data/clivarm/wip/ellgil82/AWS/'):
+        if fnmatch.fnmatch(file, '%(station)s_Jan_2011*' % locals()):
+            AWS = pd.read_csv(str(file), header = 0)
+            print(AWS.shape)
+    if period == 'January':
+        Jan18 = AWS.loc[(AWS['Day'] <= 31)]# or ((AWS['month'] == 2) * (AWS['Day'] >= 7))]
+    elif period == 'OFCAP':
+        Jan18 = AWS.loc[(AWS['Day'] <= 38)]
+    return Jan18
+
+AWS15_Jan = load_AWS('AWS15', period = 'January')
+AWS14_SEB_Jan  = load_AWS('AWS14_SEB', period = 'January')
+
 
 def print_stats():
     model_mean = pd.DataFrame()
-    for run in model_runs:
+    for run in Jan_mp:
         #print('\n\nMean cloud box QCL of %(run)s is: '% locals()+str(np.mean(run['mean_QCL'])) )
         #print('\n\nMean cloud box QCF of %(run)s is: '% locals()+str(np.mean(run['mean_QCF'])) )
         #print('\n\nMean QCL at AWS 14 and 15 is ' + str(np.mean(run['AWS14_mean_QCL']))+ ' and ' + str(np.mean(run['AWS15_mean_QCL'])) + ', respectively in %(run)s' % locals())
@@ -256,6 +347,34 @@ def print_stats():
         print means
 
 #print_stats()
+
+
+def construct_srs(var_name):
+    i = np.arange(var_name.shape[1])
+    k = var_name
+    series = []
+    for j in i:
+        a = k[:, j]
+        a = np.array(a)
+        series = np.append(series, a)
+    return series
+
+IWP14_srs = construct_srs(Jan_mp['AWS14_mean_IWP'])
+LWP14_srs = construct_srs(Jan_mp['AWS14_mean_LWP'])
+IWP15_srs = construct_srs(Jan_mp['AWS15_mean_IWP'])
+LWP15_srs = construct_srs(Jan_mp['AWS15_mean_LWP'])
+box_IWP_srs = construct_srs(Jan_mp['mean_IWP'])
+box_LWP_srs = construct_srs(Jan_mp['mean_LWP'])
+AWS14_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'][:,:,165:167, 98:100].data, axis = (2,3)))
+AWS14_LW_srs = construct_srs(np.mean(Jan_SEB['LW_down'][:,:,165:167, 98:100].data, axis = (2,3)))
+AWS15_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'][:,:,127:129, 81:83].data, axis = (2,3)))
+AWS15_LW_srs = construct_srs(np.mean(Jan_SEB['LW_down'][:,:,127:129, 81:83].data, axis = (2,3)))
+box_LW_srs = construct_srs(np.mean(Jan_SEB['LW_down'].data, axis = (2,3)))
+box_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'].data, axis = (2,3)))
+Jan_SEB['SW_down'].coord('time').convert_units('seconds since 1970-01-01 00:00:00')
+Time_srs = construct_srs(np.swapaxes(Jan_SEB['SW_down'].coord('time').points,0,1))
+Time_srs = matplotlib.dates.num2date(matplotlib.dates.epoch2num(Time_srs))
+
 
 def load_obs():
     ## ----------------------------------------------- SET UP VARIABLES --------------------------------------------------##
@@ -463,161 +582,65 @@ def column_totals():
 
 #column_totals()
 
-def QCF_plot():
-    fig, ax = plt.subplots(2,3, figsize=(22,16))
+def mod_profile():
+    fig, ax = plt.subplots(1,2, figsize=(16, 9))
     ax = ax.flatten()
-    lab_dict = {0:'a', 1:'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f'}
-    plot = 0
     for axs in ax:
         axs.spines['top'].set_visible(False)
         axs.spines['right'].set_visible(False)
         plt.setp(axs.spines.values(), linewidth=3, color='dimgrey')
-        axs.set_xlim(0, 0.04)
         axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-        [l.set_visible(False) for (w, l) in enumerate(axs.yaxis.get_ticklabels()) if w % 2 != 0]
-        [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
-    for run in model_runs:
-        ax2 = plt.twiny(ax[plot])
-        ax2.set_xlim(0,0.04)
-        ax2.axis('off')
-        ax2.axes.tick_params(axis='both', which='both', tick1On=False, tick2On=False,  pad=10)
-        plt.setp(ax2.get_yticklabels()[0], visible=False)
-        plt.setp(ax2.get_xticklabels()[0], visible=False)
-        ax2.axes.tick_params(labeltop='off')
-        m_QCF = ax[plot].plot(run['mean_QCF'], run['altitude'], color='k', linestyle = '--', linewidth=3, label='Model: Cloud box')
-        m_14 = ax[plot].plot(run['AWS14_mean_QCF'], run['altitude'], color='darkred', linestyle = ':', linewidth=3, label='Model: AWS 14')
-        m_15= ax[plot].plot(run['AWS15_mean_QCF'], run['altitude'], color='darkred', linestyle='--', linewidth=3, label='Model: AWS 15')
-        #ax[plot].fill_betweenx(run['altitude'], run['ice_5'], run['ice_95'], facecolor='lightslategrey', alpha = 0.5)# Shaded region between maxima and minima
-        #ax[plot].plot(run['ice_5'], run['altitude'], color='darkslateblue', linestyle=':', linewidth=2)
-        #ax[plot].plot(run['ice_95'], run['altitude'], color='darkslateblue', linestyle=':', linewidth=2)# Plot 5th and 95th percentiles
-        ax[plot].set_xlim(0, 0.04)
-        ax[plot].set_ylim(0, max(run['altitude']))
-        plt.setp(ax[plot].get_xticklabels()[0], visible=False)
-        ax[plot].axes.tick_params(axis='both', which='both', direction='in', length=5, width=1.5, labelsize=24, pad=10)
-        ax[plot].yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-        lab = ax[plot].text(x=0.004, y=4.8, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
-        titles = ['    RA1M','RA1M_mod', '     fl_av',  '    RA1T',
-                  'RA1T_mod', '   CASIM']
-        ax[plot].text(0.3, 0.9, transform=ax[plot].transAxes, s=titles[plot], fontsize=28, color='dimgrey')
-        print('\n PLOTTING DIS BIATCH...')
-        plot = plot+1
-        print('\nDONE!')
-        print('\nNEEEEEXT')
-    ax[0].axes.tick_params(labelbottom='off')
-    ax[1].axes.tick_params(labelbottom='off', labelleft='off')
-    ax[2].axes.tick_params(labelbottom='off', labelleft='off')
-    ax[4].axes.tick_params(labelleft='off')
-    ax[5].axes.tick_params(labelleft='off')
-    ax[0].set_ylabel('Altitude (km)', fontname='SegoeUI semibold', color='dimgrey', fontsize=28, labelpad=20)
-    ax[3].set_ylabel('Altitude (km)', fontname='SegoeUI semibold', color='dimgrey', fontsize=28, labelpad=20)
-    ax[3].xaxis.get_offset_text().set_fontsize(24)
-    ax[4].xaxis.get_offset_text().set_fontsize(24)
-    ax[5].xaxis.get_offset_text().set_fontsize(24)
-    ax[3].xaxis.get_offset_text().set_color('dimgrey')
-    ax[4].xaxis.get_offset_text().set_color('dimgrey')
-    ax[5].xaxis.get_offset_text().set_color('dimgrey')
-    ax[3].set_xlabel('Ice mass fraction (g kg$^{-1}$)', fontname='SegoeUI semibold', color='dimgrey', fontsize=28,labelpad=35)
-    ax[4].set_xlabel('Ice mass fraction (g kg$^{-1}$)', fontname='SegoeUI semibold', color='dimgrey', fontsize=28,labelpad=35)
-    ax[5].set_xlabel('Ice mass fraction (g kg$^{-1}$)', fontname='SegoeUI semibold', color='dimgrey', fontsize=28,labelpad=35)
-    ax[3].xaxis.set_major_formatter(
-        matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))  # use scientific notation on axes
-    ax[3].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
-    ax[4].xaxis.set_major_formatter(
-        matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))  # use scientific notation on axes
-    ax[4].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
-    ax[5].xaxis.set_major_formatter(
-        matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))  # use scientific notation on axes
-    ax[5].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
-    for axs in ax:
-        axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-    lns =  m_QCF + m_14 + m_15 # create labels for legend
-    labs = [l.get_label() for l in lns]
-    ax[plot-1].legend(lns, labs, markerscale=2, loc=1, fontsize=24)
-    lgd = ax[plot-1].legend(lns, labs, markerscale=2, loc=7, fontsize=24)
+        axs.set_ylim(0, max(Jan_mp['altitude']))
+        #[l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
+    m_QCF = ax[0].plot(Jan_mp['mean_QCF'], Jan_mp['altitude'], color = 'k', linestyle = '--', linewidth = 2.5)
+    ax[0].set_xlabel('Cloud ice mass mixing ratio \n(g kg$^{-1}$)', fontname='SegoeUI semibold', color='dimgrey',
+                     fontsize=28, labelpad=35)
+    ax[0].set_ylabel('Altitude \n(km)', rotation = 0, fontname='SegoeUI semibold', fontsize = 28, color = 'dimgrey', labelpad = 80)
+    ax[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+    ax[0].xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+    ax[0].xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))
+    ax[0].ticklabel_format(style='sci', axis='x', scilimits=(0,0))
+    ax[0].set_xlim(0,0.02)
+    ax[0].xaxis.get_offset_text().set_fontsize(24)
+    ax[0].xaxis.get_offset_text().set_color('dimgrey')
+    #ax[0].fill_betweenx(Jan_mp['altitude'], Jan_mp['ice_5'], Jan_mp['ice_95'], facecolor='lightslategrey', alpha=0.5)  # Shaded region between maxima and minima
+    #ax[0].plot(Jan_mp['ice_5'], Jan_mp['altitude'], color='darkslateblue', linestyle=':', linewidth=2)
+    #ax[0].plot(Jan_mp['ice_95'], Jan_mp['altitude'], color='darkslateblue', linestyle=':', linewidth=2)  # Plot 5th and 95th percentiles
+    ax[0].text(0.1, 0.85, transform = ax[0].transAxes, s='a', fontsize=32, fontweight='bold', color='dimgrey')
+    m_14 = ax[0].plot(Jan_mp['AWS14_mean_QCF'], Jan_mp['altitude'], color='darkred', linestyle='--', linewidth=3)
+    m_15= ax[0].plot(Jan_mp['AWS15_mean_QCF'], Jan_mp['altitude'], color='darkblue', linestyle='--', linewidth=3)
+    ax[1].set_xlabel('Cloud liquid mass mixing ratio \n(g kg$^{-1}$)', fontname='SegoeUI semibold', color='dimgrey',
+                     fontsize=28, labelpad=35)
+    m_QCL = ax[1].plot(Jan_mp['mean_QCL'], Jan_mp['altitude'], color = 'k', linestyle = '--', linewidth = 2.5, label = 'Model: \'cloud\' box mean')
+    #ax[1].fill_betweenx(Jan_mp['altitude'], Jan_mp['liq_5'], Jan_mp['liq_95'],  facecolor='lightslategrey', alpha=0.5, label = 'Model: 5$^{th}$ & 95$^{th}$ percentiles\n of \'cloud\' box range')  # Shaded region between maxima and minima
+    #ax[1].plot(Jan_mp['liq_5'], Jan_mp['altitude'], color='darkslateblue', linestyle=':', linewidth=2, label='')
+    #ax[1].plot(Jan_mp['liq_95'], Jan_mp['altitude'], color='darkslateblue', linestyle=':', linewidth=2)  # Plot 5th and 95th percentiles
+    m_14 = ax[1].plot(Jan_mp['AWS14_mean_QCL'], Jan_mp['altitude'], color='darkred', linestyle='--', linewidth=3, label='Model: AWS 14')
+    m_15 = ax[1].plot(Jan_mp['AWS15_mean_QCL'], Jan_mp['altitude'], color='darkblue', linestyle='--', linewidth=3, label='Model: AWS 15')
+    from matplotlib.ticker import ScalarFormatter
+    class ScalarFormatterForceFormat(ScalarFormatter):
+        def _set_format(self, vmin, vmax):  # Override function that finds format to use.
+            self.format = "%1.1f"  # Give format here
+    xfmt = ScalarFormatterForceFormat()
+    xfmt.set_powerlimits((0, 0))
+    ax[1].xaxis.set_major_formatter(xfmt)
+    ax[1].axes.tick_params(axis = 'both', which = 'both', direction = 'in', length = 5, width = 1.5,  labelsize = 24, pad = 10)
+    ax[1].tick_params(labelleft = 'off')
+    ax[1].set_xlim(0, 0.41)
+    ax[1].text(0.1, 0.85, transform = ax[1].transAxes, s='b', fontsize=32, fontweight='bold', color='dimgrey')
+    plt.subplots_adjust(wspace=0.1, bottom=0.23, top=0.95, left=0.17, right=0.98)
+    handles, labels = ax[1].get_legend_handles_labels()
+    handles = [handles[0], handles[1], handles[-1]]#, handles[2],  handles[3] ]
+    labels = [labels[0], labels[1], labels[-1]]#, labels[2], labels[3]]
+    lgd = plt.legend(handles, labels, fontsize=20, markerscale=2)
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey')
     lgd.get_frame().set_linewidth(0.0)
-    plt.subplots_adjust(bottom=0.1, top=0.95, left=0.12, right=0.95, hspace = 0.12, wspace=0.08)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/v11_QCF_Jan_2011.png')
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/v11_QCF_Jan_2011.eps')
-    #plt.show()
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vertical_profiles_OFCAP.eps', transparent = True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vertical_profiles_OFCAP.png', transparent = True)
+    plt.show()
 
-
-
-def QCL_plot():
-    fig, ax = plt.subplots(2,3, figsize=(22,16))
-    ax = ax.flatten()
-    lab_dict = {0:'a', 1:'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f'}
-    plot = 0
-    for axs in ax:
-        axs.spines['top'].set_visible(False)
-        axs.spines['right'].set_visible(False)
-        plt.setp(axs.spines.values(), linewidth=3, color='dimgrey')
-        axs.set_xlim(0,0.4)
-        axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-        [l.set_visible(False) for (w, l) in enumerate(axs.yaxis.get_ticklabels()) if w % 2 != 0]
-        [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
-    for run in model_runs:
-        ax2 = plt.twiny(ax[plot])
-        ax2.set_xlim(0, 0.4)
-        ax2.axis('off')
-        ax2.axes.tick_params(axis='both', which='both',tick1On=False, tick2On=False,)
-        plt.setp(ax2.get_yticklabels()[0], visible=False)
-        plt.setp(ax2.get_xticklabels()[0], visible=False)
-        ax2.axes.tick_params(labeltop='off')
-        m_QCL = ax[plot].plot(run['mean_QCL'], run['altitude'], color='k', linestyle = '--', linewidth=3, label='Model: Cloud box')
-        m_14 = ax[plot].plot(run['AWS14_mean_QCL'], run['altitude'], color='darkred', linestyle = ':', linewidth=3, label='Model: AWS 14')
-        m_15= ax[plot].plot(run['AWS15_mean_QCL'], run['altitude'], color='darkred', linestyle='--', linewidth=3, label='Model: AWS 15')
-        #ax[plot].fill_betweenx(run['altitude'], run['liq_5'], run['liq_95'], facecolor='lightslategrey', alpha = 0.5)  # Shaded region between maxima and minima
-        #ax[plot].plot(run['liq_5'], run['altitude'], color='darkslateblue', linestyle=':', linewidth=2)
-        #ax[plot].plot(run['liq_95'], run['altitude'], color='darkslateblue', linestyle=':', linewidth=2)  # Plot 5th and 95th percentiles
-        ax[plot].set_xlim(0, 0.4)
-        ax[plot].set_ylim(0, max(run['altitude']))
-        plt.setp(ax[plot].get_xticklabels()[0], visible=False)
-        ax[plot].axes.tick_params(axis='both', which='both', tick1On=False, tick2On=False,)
-        ax[plot].yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-        lab = ax[plot].text(x=0.04, y=4.8, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
-        titles = ['    RA1M', 'RA1M_mod', '     fl_av', '    RA1T',
-                  'RA1T_mod',  '   CASIM']
-        ax[plot].text(0.3, 0.9, transform=ax[plot].transAxes, s=titles[plot], fontsize=28, color='dimgrey')
-        print('\n PLOTTING DIS BIATCH...')
-        plot = plot + 1
-        print('\nDONE!')
-        print('\nNEEEEEXT')
-    ax[0].axes.tick_params(labelbottom='off')
-    ax[1].axes.tick_params(labelbottom='off', labelleft='off')
-    ax[2].axes.tick_params(labelbottom = 'off', labelleft='off')
-    ax[4].axes.tick_params(labelleft='off')
-    ax[5].axes.tick_params(labelleft='off')
-    ax[0].set_ylabel('Altitude (km)', fontname='SegoeUI semibold', color = 'dimgrey', fontsize=28, labelpad=20)
-    ax[3].set_ylabel('Altitude (km)', fontname='SegoeUI semibold', color = 'dimgrey',  fontsize=28, labelpad=20)
-    ax[3].xaxis.get_offset_text().set_fontsize(24)
-    ax[4].xaxis.get_offset_text().set_fontsize(24)
-    ax[5].xaxis.get_offset_text().set_fontsize(24)
-    ax[3].xaxis.get_offset_text().set_color('dimgrey')
-    ax[4].xaxis.get_offset_text().set_color('dimgrey')
-    ax[5].xaxis.get_offset_text().set_color('dimgrey')
-    ax[3].set_xlabel('Liquid mass fraction (g kg$^{-1}$)', fontname='SegoeUI semibold', color='dimgrey', fontsize=28, labelpad=35)
-    ax[4].set_xlabel('Liquid mass fraction (g kg$^{-1}$)', fontname='SegoeUI semibold', color = 'dimgrey', fontsize=28, labelpad=35)
-    ax[5].set_xlabel('Liquid mass fraction (g kg$^{-1}$)', fontname='SegoeUI semibold', color='dimgrey', fontsize=28, labelpad=35)
-    ax[3].xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))  # use scientific notation on axes
-    ax[3].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
-    ax[4].xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))  # use scientific notation on axes
-    ax[4].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
-    ax[5].xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))  # use scientific notation on axes
-    ax[5].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
-    for axs in ax:
-        axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-    lns = m_QCL + m_14 + m_15
-    labs = [l.get_label() for l in lns]
-    lgd = ax[plot-1].legend(lns, labs, markerscale=2, loc=7, fontsize=24)
-    for ln in lgd.get_texts():
-        plt.setp(ln, color='dimgrey')
-    lgd.get_frame().set_linewidth(0.0)
-    plt.subplots_adjust(bottom=0.1, top=0.95, left=0.12, right=0.95, hspace=0.12, wspace=0.08)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/v11_QCL_Jan_2011.png')
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/v11_QCL_Jan_2011.eps')
-    #plt.show()
+mod_profile()
 
 
 def T_plot():
@@ -647,8 +670,6 @@ def T_plot():
     plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/v11_T_Jan_2011.eps')
     #plt.show()
 
-#QCF_plot()
-#QCL_plot()
 #T_plot()
 
 from itertools import chain
@@ -733,76 +754,190 @@ def correl_plot():
 from matplotlib.lines import Line2D
 
 def IWP_time_srs():
-    model_runs = ['Jan_2011']
-    fig, ax = plt.subplots(1,2)
-    #ax = ax.flatten()
-    ax2 = np.empty_like(ax)
+    model_runs = [Jan_mp]
+    fig, ax = plt.subplots(2,1, sharex = True, figsize = (30,14))
     for axs in ax:
         axs.spines['top'].set_visible(False)
         plt.setp(axs.spines.values(), linewidth=3, color='dimgrey')
-        #[l.set_visible(False) for (w, l) in enumerate(axs.yaxis.get_ticklabels()) if w % 2 != 0]
+        axs.spines['right'].set_visible(False)
         [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
-        #axs.axvspan(15, 17, edgecolor = 'dimgrey', facecolor='dimgrey', alpha=0.5)
-    def my_fmt(x,p):
-        return {0}.format(x) + ':00'
     plot = 0
     lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i', 9: 'j', 10: 'k', 11: 'l' }
     for run in model_runs:
         os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
         print('\nPLOTTING DIS BIATCH...')
         ax[plot].spines['right'].set_visible(False)
-        ## 1st column = IWP
-        ax[plot].plot(run['IWP'].coord('time').points, (np.mean(run['IWP'][:, 199:201, 199:201].data, axis = (1,2))), label = 'AWS14 IWP', linewidth = 3, linestyle = '--', color = 'darkred')
-        ax[plot].plot(run['IWP'].coord('time').points, np.mean(run['IWP'][:,161:163, 182:184].data, axis = (1,2)), label='AWS15 IWP', linewidth=3, linestyle='--',color='darkblue')
-        ax[plot].plot(run['IWP'].coord('time').points, np.mean(run['IWP'][:,111:227, 162:213].data, axis = (1,2)), label='Cloud box IWP', linewidth=3, color='k')
-        ax[plot].text(x=13, y=250, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
-        #plt.setp(ax[plot].get_yticklabels()[-1], visible=False)
-        ax[plot].set_xlim(12, 23)
-        ax[plot].set_ylim(0,300)
-        ax[plot].set_yticks([0, 150, 300])
+        ax[plot].plot(Time_srs,IWP14_srs*1000, label = 'AWS14 IWP', linewidth = 2,  color = 'darkred')
+        ax[plot].plot(Time_srs,IWP15_srs*1000, label='AWS15 IWP', linewidth=2, color='darkblue')
+        ax[plot].plot(Time_srs,box_IWP_srs*1000, label='Cloud box IWP', linewidth=2, linestyle='--', color='k')
+        lab = ax[plot].text(0.03, 0.85, transform=ax[plot].transAxes, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
+        ax[plot].set_xlim(Time_srs[0], Time_srs[-1])
+        ax[plot].set_ylim(0,1050)
+        ax[plot].set_yticks([0, 250, 500, 750, 1000])
         ax[plot].tick_params(axis='both', labelsize=28, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-        ## 2nd column = downwelling LW. As above.
-        ax[plot+1].set_ylim(0,100)
-        ax[plot+1].set_yticks([0,  50, 100])
-        ax[plot+1].yaxis.set_label_position("right")
-        ax[plot + 1].spines['left'].set_visible(False)
-        ax[plot+1].yaxis.tick_right()
-        ax[plot+1].plot(run['LWP'].coord('time').points, (np.mean(run['LWP'][:, 199:201, 199:201].data, axis = (1,2))), label = 'AWS14 LWP', linewidth = 3, linestyle = '--', color = 'darkred')
-        ax[plot+1].plot(run['LWP'].coord('time').points, np.mean(run['LWP'][:,161:163, 182:184].data, axis = (1,2)), label='AWS15 LWP', linewidth=3, linestyle='--',color='darkblue')
-        ax[plot+1].plot(run['LWP'].coord('time').points, np.mean(run['LWP'][:,111:227, 162:213].data, axis = (1,2)), label='Cloud box LWP', linewidth=3, color='k')
-        ax[plot+1].text(x=13, y=83, s=lab_dict[plot+1], fontsize=32, fontweight='bold', color='dimgrey')
+        ax[plot+1].set_ylim(0,500)
+        ax[plot+1].set_yticks([0, 125, 250, 375, 500])
+        ax[plot+1].plot(Time_srs,LWP14_srs*1000, label = 'AWS14 LWP', linewidth = 2,  color = 'darkred')
+        ax[plot+1].plot(Time_srs,LWP15_srs*1000, label='AWS15 LWP', linewidth=2,color='darkblue')
+        ax[plot+1].plot(Time_srs,box_LWP_srs*1000, label='Cloud box LWP', linewidth=2, linestyle='--', color='k')
         ax[plot+1].tick_params(axis='both', labelsize=28, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-        #[l.set_visible(False) for (i, l) in enumerate(ax[plot+1].yaxis.get_ticklabels()) if i % 2 != 0]
-        #[l.set_visible(False) for (i, l) in enumerate(ax[plot + 1].xaxis.get_ticklabels()) if i % 2 != 0]
         [w.set_linewidth(2) for w in ax[plot].spines.itervalues()]
         [w.set_linewidth(2) for w in ax[plot+1].spines.itervalues()]
-        ax[plot+1].set_xlim(run['IWP'].coord('time').points[1], run['IWP'].coord('time').points[-1])
-        titles = ['    RA1M','    RA1M', 'RA1M_mod', 'RA1M_mod', '     fl_av','     fl_av', '    RA1T', '    RA1T', 'RA1T_mod','RA1T_mod', '   CASIM', '   CASIM']
-        ax[plot].text(0.83, 1.05, transform=ax[plot].transAxes, s=titles[plot], fontsize=28, color='dimgrey')
+        ax[plot+1].set_xlim(Time_srs[0], Time_srs[-1])
+        lab = ax[plot+1].text(0.03, 0.85, transform=ax[plot+1].transAxes, s=lab_dict[plot+1], fontsize=32, fontweight='bold',color='dimgrey')
         print('\nDONE!')
         print('\nNEEEEEXT')
         plot = plot + 2
-    # ax[plot+1].set_xlim(12,23)
-    ax[0].xaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%d:00"))
-    ax[1].xaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%d:00"))
+    ax[1].xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%d %b"))
+    plt.setp(ax[1].get_xticklabels()[-3], visible=False)
+    plt.setp(ax[1].get_xticklabels()[-1], visible=False)
     lns = [Line2D([0], [0], color='darkred', linewidth=3),
-           Line2D([0], [0], color='darkred', linestyle = '--', linewidth=3),
            Line2D([0], [0], color='darkblue', linewidth=3),
-           Line2D([0], [0], color='darkblue', linestyle = '--', linewidth=3)]
-    labs = ['AWS 14, observed', 'AWS 14, modelled','AWS 15, observed', 'AWS 15, modelled']#  '                      ','                      '
-    lgd = plt.legend(lns, labs, ncol=2, bbox_to_anchor=(0.9, -0.2), borderaxespad=0., loc='best', prop={'size': 24})
+           Line2D([0], [0], color='k', linestyle='--', linewidth=3)]
+    labs = [ 'AWS 14','AWS 15', 'Ice shelf mean']#  '                      ','                      '
+    lgd = plt.legend(lns, labs, ncol=2, bbox_to_anchor=(1., 2.), borderaxespad=0., loc='best', prop={'size': 24})
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey')
     lgd.get_frame().set_linewidth(0.0)
-    plt.subplots_adjust(left=0.22, bottom=0.15, right=0.78, top=0.97, wspace = 0.15, hspace = 0.15)
+    plt.subplots_adjust(left=0.1, bottom=0.15, right=0.98, top=0.97, wspace = 0.05, hspace = 0.1)
     fig.text(0.5, 0.04, 'Time (hours)', fontsize=24, fontweight = 'bold', ha = 'center', va = 'center', color = 'dimgrey')
-    fig.text(0.08, 0.55, 'IWP (g kg$^{-1}$)', fontsize=30, ha= 'center', va='center', rotation = 0, color = 'dimgrey')
-    fig.text(0.92, 0.55, 'LWP (g kg$^{-1}$)', fontsize=30, ha='center', va='center', color = 'dimgrey', rotation=0)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/vn11_water_path_time_srs_Jan_2011.png')
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/vn11_water_path_time_srs_Jan_2011.eps')
-    #plt.show()
+    fig.text(0.03, 0.8, 'IWP \n(g m$^{-2}$)', fontsize=30, ha= 'center', va='center', rotation = 0, color = 'dimgrey')
+    fig.text(0.03, 0.4, 'LWP \n(g m$^{-2}$)', fontsize=30, ha='center', va='center', color = 'dimgrey', rotation=0)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vn11_water_path_time_srs_Jan_2011.png')
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vn11_water_path_time_srs_Jan_2011.eps')
+    plt.show()
 
-IWP_time_srs(), QCF_plot(), QCL_plot()
 
-T_plot()
+def rad_time_srs():
+    model_runs = [Jan_mp]
+    fig, ax = plt.subplots(2,1, sharex = True, figsize = (30,14))
+    for axs in ax:
+        axs.spines['top'].set_visible(False)
+        plt.setp(axs.spines.values(), linewidth=3, color='dimgrey')
+        axs.spines['right'].set_visible(False)
+        [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
+    plot = 0
+    lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i', 9: 'j', 10: 'k', 11: 'l' }
+    for run in model_runs:
+        os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
+        print('\nPLOTTING DIS BIATCH...')
+        ax[plot].spines['right'].set_visible(False)
+        ax[plot].plot(Time_srs, AWS14_SW_srs, label = 'AWS14 SW$_{\downarrow}$: modelled', linewidth = 2,  linestyle = '--', color = 'darkred')
+        #ax[plot].plot(Time_srs,AWS15_SW_srs, label='AWS15 SW$_{\downarrow}$', linewidth=2, color='darkblue')
+        #ax[plot].plot(Time_srs,box_SW_srs, label='Cloud box SW$_{\downarrow}$', linewidth=2, linestyle='--', color='k')
+        ax2 = ax[plot].twiny()
+        ax2.plot(AWS14_SEB_Jan['SWin_corr'], label = 'AWS14 SW$_{\downarrow}$: observed', linewidth = 2,  color = 'darkred')
+        ax2.xaxis.set_visible(False)
+        ax2.yaxis.set_visible(False)
+        ax2.spines['top'].set_visible(False)
+        plt.setp(ax2.spines.values(), linewidth=3, color='dimgrey')
+        ax2.spines['right'].set_visible(False)
+        ax2.tick_params(axis='both', labelsize=28, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+        lab = ax[plot].text(0.03, 0.85, transform=ax[plot].transAxes, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
+        ax[plot].set_xlim(Time_srs[0], Time_srs[-1])
+        ax[plot].set_ylim(0,1050)
+        ax[plot].set_yticks([0, 250, 500, 750, 1000])
+        ax[plot].tick_params(axis='both', labelsize=28, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+        ax[plot+1].set_ylim(150,350)
+        ax[plot+1].set_yticks([ 200, 300])
+        ax[plot+1].plot(Time_srs,AWS14_LW_srs, label = 'AWS14 LW$_{\downarrow}$', linewidth = 2,  linestyle = '--',color = 'darkred')
+        #ax[plot+1].plot(Time_srs,AWS15_LW_srs, label = 'AWS15_LW$_{\downarrow}$', linewidth=2,color='darkblue')
+        #ax[plot+1].plot(Time_srs,box_LW_srs, label = 'Cloud box LW$_{\downarrow}$', linewidth=2, linestyle='--', color='k')
+        ax[plot+1].tick_params(axis='both', labelsize=28, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+        ax2 = ax[plot+1].twiny()
+        ax2.plot(AWS14_SEB_Jan['LWin'], label = 'AWS14 LW$_{\downarrow}$: observed', linewidth = 2,  color = 'darkred')
+        ax2.xaxis.set_visible(False)
+        ax2.yaxis.set_visible(False)
+        ax2.spines['top'].set_visible(False)
+        plt.setp(ax2.spines.values(), linewidth=3, color='dimgrey')
+        ax2.spines['right'].set_visible(False)
+        ax2.tick_params(axis='both', labelsize=28, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+        [w.set_linewidth(2) for w in ax[plot].spines.itervalues()]
+        [w.set_linewidth(2) for w in ax[plot+1].spines.itervalues()]
+        ax[plot+1].set_xlim(Time_srs[0], Time_srs[-1])
+        lab = ax[plot+1].text(0.03, 0.85, transform=ax[plot+1].transAxes, s=lab_dict[plot+1], fontsize=32, fontweight='bold',color='dimgrey')
+        print('\nDONE!')
+        print('\nNEEEEEXT')
+        plot = plot + 2
+    ax[1].xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%d %b"))
+    plt.setp(ax[1].get_xticklabels()[-3], visible=False)
+    plt.setp(ax[1].get_xticklabels()[-1], visible=False)
+    lns = [Line2D([0], [0], color='darkred', linewidth=3),
+           Line2D([0], [0], color='darkblue', linewidth=3),
+           Line2D([0], [0], color='k', linestyle='--', linewidth=3)]
+    labs = [ 'AWS 14','AWS 15', 'Ice shelf mean']#  '                      ','                      '
+    lgd = plt.legend(lns, labs, ncol=2, bbox_to_anchor=(1., 2.), borderaxespad=0., loc='best', prop={'size': 24})
+    for ln in lgd.get_texts():
+        plt.setp(ln, color='dimgrey')
+    lgd.get_frame().set_linewidth(0.0)
+    plt.subplots_adjust(left=0.1, bottom=0.15, right=0.98, top=0.97, wspace = 0.05, hspace = 0.1)
+    fig.text(0.5, 0.04, 'Time (hours)', fontsize=24, fontweight = 'bold', ha = 'center', va = 'center', color = 'dimgrey')
+    fig.text(0.03, 0.8, 'SW$_{\downarrow}$\n(W m$^{-2}$)', fontsize=30, ha= 'center', va='center', rotation = 0, color = 'dimgrey')
+    fig.text(0.03, 0.4, 'LW$_{\downarrow}$\n(W m$^{-2}$)', fontsize=30, ha='center', va='center', color = 'dimgrey', rotation=0)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vn11_rad_time_srs_AWS14_Jan_2011.png')
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vn11_rad_time_srs_AWS14_Jan_2011.eps')
+    plt.show()
+
+rad_time_srs()
+
+def liq_time_srs():
+    model_runs = [Jan_mp]
+    fig, ax = plt.subplots(2,1, sharex = True, figsize = (30,14))
+    for axs in ax:
+        axs.spines['top'].set_visible(False)
+        plt.setp(axs.spines.values(), linewidth=3, color='dimgrey')
+        axs.spines['right'].set_visible(False)
+        [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
+    plot = 0
+    lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i', 9: 'j', 10: 'k', 11: 'l' }
+    for run in model_runs:
+        os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
+        print('\nPLOTTING DIS BIATCH...')
+        ax[plot].spines['right'].set_visible(False)
+        ax[plot].plot(Time_srs, IWP14_srs * 1000, label='AWS14 IWP', linewidth=2, color='darkred')
+        ax[plot].plot(Time_srs, IWP15_srs * 1000, label='AWS15 IWP', linewidth=2, color='darkblue')
+        ax[plot].plot(Time_srs, box_IWP_srs * 1000, label='Cloud box IWP', linewidth=2, linestyle='--', color='k')
+        lab = ax[plot].text(0.03, 0.85, transform=ax[plot].transAxes, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
+        ax[plot].set_xlim(Time_srs[0], Time_srs[-1])
+        ax[plot].set_ylim(0,1050)
+        ax[plot].set_yticks([0, 250, 500, 750, 1000])
+        ax[plot].tick_params(axis='both', labelsize=28, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+        ax[plot+1].set_ylim(150,350)
+        ax[plot+1].set_yticks([ 200, 300])
+        ax[plot+1].plot(Time_srs,AWS14_LW_srs, label = 'AWS14 LW$_{\downarrow}$', linewidth = 2,  color = 'darkred')
+        ax[plot+1].plot(Time_srs,AWS15_LW_srs, label = 'AWS15_LW$_{\downarrow}$', linewidth=2,color='darkblue')
+        ax[plot+1].plot(Time_srs,box_LW_srs, label = 'Cloud box LW$_{\downarrow}$', linewidth=2, linestyle='--', color='k')
+        ax[plot+1].tick_params(axis='both', labelsize=28, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+        [w.set_linewidth(2) for w in ax[plot].spines.itervalues()]
+        [w.set_linewidth(2) for w in ax[plot+1].spines.itervalues()]
+        ax[plot+1].set_xlim(Time_srs[0], Time_srs[-1])
+        lab = ax[plot+1].text(0.03, 0.85, transform=ax[plot+1].transAxes, s=lab_dict[plot+1], fontsize=32, fontweight='bold',color='dimgrey')
+        print('\nDONE!')
+        print('\nNEEEEEXT')
+        plot = plot + 2
+    ax[1].xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%d %b"))
+    plt.setp(ax[1].get_xticklabels()[-3], visible=False)
+    plt.setp(ax[1].get_xticklabels()[-1], visible=False)
+    lns = [Line2D([0], [0], color='darkred', linewidth=3),
+           Line2D([0], [0], color='darkblue', linewidth=3),
+           Line2D([0], [0], color='k', linestyle='--', linewidth=3)]
+    labs = [ 'AWS 14','AWS 15', 'Ice shelf mean']#  '                      ','                      '
+    lgd = plt.legend(lns, labs, ncol=2, bbox_to_anchor=(1., 2.), borderaxespad=0., loc='best', prop={'size': 24})
+    for ln in lgd.get_texts():
+        plt.setp(ln, color='dimgrey')
+    lgd.get_frame().set_linewidth(0.0)
+    plt.subplots_adjust(left=0.1, bottom=0.15, right=0.98, top=0.97, wspace = 0.05, hspace = 0.1)
+    fig.text(0.5, 0.04, 'Time (hours)', fontsize=24, fontweight = 'bold', ha = 'center', va = 'center', color = 'dimgrey')
+    fig.text(0.03, 0.8, 'SW$_{\downarrow}$\n(W m$^{-2}$)', fontsize=30, ha= 'center', va='center', rotation = 0, color = 'dimgrey')
+    fig.text(0.03, 0.4, 'LW$_{\downarrow}$\n(W m$^{-2}$)', fontsize=30, ha='center', va='center', color = 'dimgrey', rotation=0)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vn11_rad_time_srs_Jan_2011.png')
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vn11_rad_time_srs_Jan_2011.eps')
+    plt.show()
+
+
+
+#IWP_time_srs(),
+#QCF_plot(), QCL_plot()
+
+#T_plot()
 
