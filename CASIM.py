@@ -72,8 +72,10 @@ def load_model(config, flight_date, times): #times should be a range in the form
     box_QCL = liq_mass_frac[times[0]:times[1], :40, 133:207, 188:213].data
     box_mean_IWP = np.mean(IWP[times[0]:times[1], 133:207, 188:213].data)#, axis = (0,1,2))
     box_mean_LWP = np.mean(LWP[times[0]:times[1], 133:207, 188:213].data)#, axis =(0,1,2))
-    mean_QCF = np.ma.masked_less_equal(box_QCF, 0.005).mean(axis = (0,2,3))
-    mean_QCL = np.ma.masked_less_equal(box_QCL, 0.005).mean(axis = (0,2,3))
+    mean_QCF = np.mean(box_QCF, axis = (0,2,3))
+    mean_QCL = np.mean(box_QCL, axis=(0, 2, 3))
+    #mean_QCF = np.ma.masked_less_equal(box_QCF, 0.005).mean(axis = (0,2,3))
+    #mean_QCL = np.ma.masked_less_equal(box_QCL, 0.005).mean(axis = (0,2,3))
     AWS14_mean_QCF = np.mean(ice_mass_frac[times[0]:times[1], :40, 199:201, 199:201].data, axis=(0, 2, 3))
     AWS14_mean_QCL = np.mean(liq_mass_frac[times[0]:times[1], :40, 199:201, 199:201].data, axis=(0, 2, 3))
     AWS15_mean_QCF = np.mean(ice_mass_frac[times[0]:times[1], :40, 161:163, 182:184].data, axis=(0, 2, 3))
@@ -201,7 +203,7 @@ def load_obs(flight, flight_date):
     ## ----------------------------------------------- SET UP VARIABLES --------------------------------------------------##
     ## Load core data
     print('\nYes yes cuzzy, pretty soon you\'re gonna have some nice core data...')
-    bsl_path_core = '/data/mac/ellgil82/cloud_data/core_data/core_masin_'+flight_date+'_r001_'+flight+'_50hz.nc'
+    bsl_path_core = '/data/mac/ellgil82/cloud_data/Constantino_Oasis_Peninsula/'+flight+'/core_masin_'+flight_date+'_r001_'+flight+'_1hz.nc'
     cubes = iris.load(bsl_path_core)
     #RH = iris.load_cube(bsl_path_core, 'relative_humidity')
     core_temp = cubes[34] #de-iced temperature
@@ -370,7 +372,7 @@ def draw_screen_poly( lats, lons, m):
 def obs_mod_profile(run):
     fig, ax = plt.subplots(1,2, figsize=(16, 9))
     ax = ax.flatten()
-    IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_liq, drop_profile, drop_array, nconc_ice, box_IWC, box_LWC, box_nconc_ice, box_nconc_liq, n_ice_profile = load_obs(flight = 'flight159', date = '20110125')
+    IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_liq, drop_profile, drop_array, nconc_ice, box_IWC, box_LWC, box_nconc_ice, box_nconc_liq, n_ice_profile = load_obs(flight = 'flight152', flight_date = '20110118')
     for axs in ax:
         axs.spines['top'].set_visible(False)
         axs.spines['right'].set_visible(False)
@@ -386,7 +388,7 @@ def obs_mod_profile(run):
     ax[0].yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
     ax[0].xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))
     ax[0].ticklabel_format(style='sci', axis='x', scilimits=(0,0))
-    ax[0].set_xlim(0,0.02)
+    ax[0].set_xlim(0,0.1)
     ax[0].xaxis.get_offset_text().set_fontsize(24)
     ax[0].xaxis.get_offset_text().set_color('dimgrey')
     ax[0].fill_betweenx(run['altitude'], run['ice_5'], run['ice_95'], facecolor='lightslategrey', alpha=0.5)  # Shaded region between maxima and minima
@@ -423,8 +425,8 @@ def obs_mod_profile(run):
     lgd.get_frame().set_linewidth(0.0)
     plt.setp(ax[0].get_xticklabels()[-3], visible=False)
     plt.setp(ax[1].get_xticklabels()[-3], visible=False)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/vertical_profiles_RA1M_mod.eps', transparent = True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/vertical_profiles_RA1M_mod.png', transparent = True)
+    #plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/vertical_profiles_RA1M_mod.eps', transparent = True)
+    #plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/vertical_profiles_RA1M_mod.png', transparent = True)
     plt.show()
 
 
@@ -494,7 +496,7 @@ def column_totals():
     plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/v11_mod_comparison_24.eps', transparent=True)
     plt.show()
 
-column_totals()
+#column_totals()
 
 def QCF_plot():
     fig, ax = plt.subplots(len(model_runs), 2, sharex='col', figsize=(15, len(model_runs * 5) + 3))
@@ -793,7 +795,7 @@ def IWP_time_srs():
         print('\nDONE!')
         print('\nNEEEEEXT')
         plot = plot + 2
-        ax[0].xaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%d:00"))
+    ax[0].xaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%d:00"))
     ax[1].xaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%d:00"))
     lns = [Line2D([0], [0], color='k', linewidth=3),
            Line2D([0], [0], color='darkred', linestyle = '--', linewidth=3),
@@ -938,28 +940,66 @@ def dif_plot():
 RA1M_SEB = load_SEB(config = 'RA1M_24', flight_date= '20110118T0000')
 RA1M_mod_SEB = load_SEB(config = 'RA1M_mod_24', flight_date= '20110118T0000Z')
 
-model_runs = ['RA1M_SEB']
+#model_runs = ['RA1M_SEB']
 
-def SEB_correl(runSEB, runMP, times):
-    fig, ax = plt.subplots(len(model_runs),2, sharex='col', figsize=(18, 15), subplot_kw = {'aspect':1})  # , squeeze=False)
+def SEB_correl(runSEB, runMP, times, scatter_type):
+    fig, ax = plt.subplots(len(model_runs),2, sharex='col', figsize=(18, len(model_runs * 5) + 3), subplot_kw = {'aspect':1})  # , squeeze=False)
     ax = ax.flatten()
     lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i', 9: 'j', 10: 'k', 11: 'l' }
     plot = 0
-    for run in model_runs:
-        slope, intercept, r2, p, sterr = scipy.stats.linregress(np.mean(runSEB['LW_down'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)), np.mean(runMP['LWP'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)))
+    if scatter_type == 'spatial' or 'space':
+        # LW vs LWP
+        ax[plot].set_xlim(250,350)
+        ax[plot].scatter(np.ravel(np.mean(runSEB['LW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))), np.ravel(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))), color='#f68080',s=50)
+        #ax[plot].set_ylim(np.min(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=0)),
+        #                  np.max(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+        #ax[plot].set_xlim(np.min(np.mean(runSEB['LW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
+        #                  np.max(np.mean(runSEB['LW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(np.ravel(np.mean(runSEB['LW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
+            np.ravel(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+        if p <= 0.01:
+            ax[plot].text(0.75, 0.9, horizontalalignment='right', verticalalignment='top', s='r$^{2}$ = %s' % np.round(r2, decimals=2),
+                          fontweight='bold', transform=ax[plot].transAxes, size=24,color='dimgrey')
+        else:
+            ax[plot].text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                          s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax[plot].transAxes, size=24, color='dimgrey')
+        # SW vs IWP
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(np.ravel(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
+            np.ravel(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+        if p <= 0.01:
+            ax[plot + 1].text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                              s='r$^{2}$ = %s' % np.round(r2, decimals=2), fontweight='bold',
+                              transform=ax[plot + 1].transAxes, size=24, color='dimgrey')
+        else:
+            ax[plot + 1].text(0.75, 0.9, horizontalalignment='right', verticalalignment='top', s='r$^{2}$ = %s' % np.round(r2, decimals=2),
+                              transform=ax[plot + 1].transAxes, size=24,color='dimgrey')
+        ax[plot + 1].scatter(np.ravel(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))), np.ravel(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
+                             color='#f68080', s=50)
+        #ax[plot+1].set_ylim(np.min(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=0)),
+        #                  np.max(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+        #ax[plot+1].set_xlim(np.min(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
+        #                  np.max(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+        #ax[plot + 1].plot(ax[plot + 1].get_xlim(), ax[plot + 1].get_ylim(), ls="--", c='k', alpha=0.8)
+        ax[plot+1].set_xlim(400,600)
+    elif scatter_type == 'temporal' or 'time':
+        ax[plot].scatter(np.mean(runSEB['LW_down'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)), np.mean(runMP['LWP'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)), color = '#f68080', s = 50)
+        ax[plot].set_ylim(min(np.mean(runMP['LWP'][times[0]:times[1],199:201, 199:201].data, axis = (1,2))), max(np.mean(runMP['LWP'][times[0]:times[1],199:201, 199:201].data, axis = (1,2))))
+        ax[plot].set_xlim(min(np.mean(runSEB['LW_down'][times[0]:times[1],199:201, 199:201].data, axis = (1,2))), max(np.mean(runSEB['LW_down'][times[0]:times[1],199:201, 199:201].data, axis = (1,2))))
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(
+            np.mean(runSEB['LW_down'][times[0]:times[1], 199:201, 199:201].data, axis=(1, 2)),
+            np.mean(runMP['LWP'][times[0]:times[1], 199:201, 199:201].data, axis=(1, 2)))
         if p <= 0.01:
             ax[plot].text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
-                          s='r$^{2}$ = %s' % np.round(r2, decimals=2), fontweight = 'bold', transform=ax[plot].transAxes, size=24,
+                          s='r$^{2}$ = %s' % np.round(r2, decimals=2), fontweight='bold', transform=ax[plot].transAxes,
+                          size=24,
                           color='dimgrey')
         else:
             ax[plot].text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
                           s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax[plot].transAxes, size=24,
                           color='dimgrey')
-        ax[plot].scatter(np.mean(runSEB['LW_down'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)), np.mean(runMP['LWP'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)), color = '#f68080', s = 50)
-        ax[plot].set_ylim(min(np.mean(runMP['LWP'][times[0]:times[1],199:201, 199:201].data, axis = (1,2))), max(np.mean(runMP['LWP'][times[0]:times[1],199:201, 199:201].data, axis = (1,2))))
-        ax[plot].set_xlim(min(np.mean(runSEB['LW_down'][times[0]:times[1],199:201, 199:201].data, axis = (1,2))), max(np.mean(runSEB['LW_down'][times[0]:times[1],199:201, 199:201].data, axis = (1,2))))
-        ax[plot].plot(ax[plot].get_xlim(), ax[plot].get_ylim(), ls="--", c = 'k', alpha = 0.8)
-        slope, intercept, r2, p, sterr = scipy.stats.linregress(np.mean(runSEB['SW_down'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)), np.mean(runMP['IWP'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)))
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(
+            np.mean(runSEB['SW_down'][times[0]:times[1], 199:201, 199:201].data, axis=(1, 2)),
+            np.mean(runMP['IWP'][times[0]:times[1], 199:201, 199:201].data, axis=(1, 2)))
         if p <= 0.01:
             ax[plot+1].text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
                           s='r$^{2}$ = %s' % np.round(r2, decimals=2), fontweight='bold', transform=ax[plot+1].transAxes,
@@ -970,48 +1010,106 @@ def SEB_correl(runSEB, runMP, times):
                           s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax[plot+1].transAxes, size=24,
                           color='dimgrey')
         ax[plot+1].scatter(np.mean(runSEB['SW_down'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)), np.mean(runMP['IWP'][times[0]:times[1],199:201, 199:201].data, axis = (1,2)), color='#f68080', s=50)
-        ax[plot+1].set_ylim(min(np.mean(runMP['IWP'][times[0]:times[1], 199:201, 199:201].data, axis=(1, 2))), max(np.mean(runMP['IWP'][times[0]:times[1], 199:201, 199:201].data, axis=(1, 2))))
-        ax[plot+1].set_xlim(min(np.mean(runSEB['SW_down'][times[0]:times[1], 199:201, 199:201].data, axis=(1, 2))),max(np.mean(runSEB['SW_down'][times[0]:times[1], 199:201, 199:201].data, axis=(1, 2))))
-        ax[plot+1].plot(ax[plot+1].get_xlim(), ax[plot+1].get_ylim(), ls="--", c='k', alpha=0.8)
-        ax[plot].set_xlabel('Modelled LW$_{\downarrow}$ (W m$^{-2}$)', size = 24, color = 'dimgrey', rotation = 0, labelpad = 10)
-        ax[plot].set_ylabel('Modelled LWP (g m$^{-2}$)', size = 24, color = 'dimgrey', rotation =0, labelpad= 80)
-        ax[plot+1].set_xlabel('Modelled SW$_{\downarrow}$ (W m$^{-2}$)', size = 24, color = 'dimgrey', rotation = 0, labelpad = 10)
-        ax[plot+1].set_ylabel('Modelled IWP (g m$^{-2}$)', size = 24, color = 'dimgrey', rotation =0, labelpad= 80)
-        lab = ax[plot].text(0.1, 0.85, transform = ax[plot].transAxes, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
-        lab2 = ax[plot+1].text(0.1, 0.85, transform = ax[plot+1].transAxes, s=lab_dict[plot+1], fontsize=32, fontweight='bold', color='dimgrey')
-        titles = ['    RA1M','    RA1M']#,'RA1M_mod','RA1M_mod','     fl_av', '     fl_av','    RA1T','    RA1T',  'RA1T_mod', 'RA1T_mod','   CASIM','   CASIM']
-        ax[plot].text(0.83, 1.1, transform=ax[plot].transAxes, s=titles[plot], fontsize=28, color='dimgrey')
-        plt.setp(ax[plot].get_xticklabels()[-2], visible=False)
-        plt.setp(ax[plot].get_yticklabels()[-2], visible=False)
-        ax[plot+1].yaxis.tick_right()
-        [l.set_visible(False) for (w, l) in enumerate(ax[plot + 1].yaxis.get_ticklabels()) if w % 2 != 0]
-        ax[plot].yaxis.set_label_coords(-0.6, 0.5)
-        ax[plot+1].yaxis.set_label_coords(1.6, 0.5)
-        ax[plot].spines['right'].set_visible(False)
-        ax[plot+1].spines['left'].set_visible(False)
-        plot = plot + 2
+        #ax[plot+1].set_ylim(min(np.mean(runMP['IWP'][times[0]:times[1], 199:201, 199:201].data, axis=(1, 2))), max(np.mean(runMP['IWP'][times[0]:times[1], 199:201, 199:201].data, axis=(1, 2))))
+        #ax[plot+1].set_xlim(min(np.mean(runSEB['SW_down'][times[0]:times[1], 199:201, 199:201].data, axis=(1, 2))),max(np.mean(runSEB['SW_down'][times[0]:times[1], 199:201, 199:201].data, axis=(1, 2))))
+        #ax[plot+1].plot(ax[plot+1].get_xlim(), ax[plot+1].get_ylim(), ls="--", c='k', alpha=0.8)
+    ax[plot].set_xlabel('Modelled LW$_{\downarrow}$ (W m$^{-2}$)', size = 24, color = 'dimgrey', rotation = 0, labelpad = 10)
+    ax[plot].set_ylabel('Modelled LWP \n(g m$^{-2}$)', size = 24, color = 'dimgrey', rotation =0, labelpad= 80)
+    ax[plot+1].set_xlabel('Modelled SW$_{\downarrow}$ (W m$^{-2}$)', size = 24, color = 'dimgrey', rotation = 0, labelpad = 10)
+    ax[plot+1].set_ylabel('Modelled IWP \n(g m$^{-2}$)', size = 24, color = 'dimgrey', rotation =0, labelpad= 80)
+    lab = ax[plot].text(0.1, 0.85, transform = ax[plot].transAxes, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
+    lab2 = ax[plot+1].text(0.1, 0.85, transform = ax[plot+1].transAxes, s=lab_dict[plot+1], fontsize=32, fontweight='bold', color='dimgrey')
+    titles = ['RA1M_mod','RA1M_mod']#'    RA1M','    RA1M']#,,'     fl_av', '     fl_av','    RA1T','    RA1T',  'RA1T_mod', 'RA1T_mod','   CASIM','   CASIM']
+    ax[plot].text(0.83, 1.1, transform=ax[plot].transAxes, s=titles[plot], fontsize=28, color='dimgrey')
+    plt.setp(ax[plot].get_xticklabels()[-2], visible=False)
+    plt.setp(ax[plot].get_yticklabels()[-2], visible=False)
+    ax[plot+1].yaxis.tick_right()
+    [l.set_visible(False) for (w, l) in enumerate(ax[plot + 1].yaxis.get_ticklabels()) if w % 2 != 0]
+    ax[plot].yaxis.set_label_coords(-0.6, 0.5)
+    ax[plot+1].yaxis.set_label_coords(1.6, 0.5)
+    ax[plot].spines['right'].set_visible(False)
+    ax[plot+1].spines['left'].set_visible(False)
     for axs in ax:
         axs.spines['top'].set_visible(False)
         plt.setp(axs.spines.values(), linewidth=2, color='dimgrey', )
-        axs.set(adjustable='box-forced', aspect='equal')
-        axs.set_aspect('equal', 'box')
+        #axs.axis('square')
+        axs.set_adjustable('box')
         axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
         [l.set_visible(False) for (w, l) in enumerate(axs.yaxis.get_ticklabels()) if w % 2 != 0]
         [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
-    plt.subplots_adjust(top = 0.98, hspace = 0.15, bottom = 0.05, wspace = 0.15, left = 0.25, right = 0.75)
-    #plt.setp(ax[5].get_xticklabels()[-2], visible=False)
-    #plt.setp(ax[6].get_xticklabels()[-2], visible=False)
-    #plt.setp(ax[1].get_xticklabels()[-3], visible=False)
-    #plt.setp(ax[2].get_xticklabels()[-3], visible=False)
-    #plt.setp(ax[2].get_yticklabels()[-1], visible=False)
-    #plt.setp(ax[5].get_yticklabels()[-2], visible=False)
-    #plt.setp(ax[6].get_yticklabels()[-2], visible=False)
-    #plt.setp(ax[1].get_yticklabels()[-3], visible=False)
-    #plt.setp(ax[2].get_yticklabels()[-3], visible=False)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp.png', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp.eps', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp.pdf', transparent=True)
+    ax[0].set_xlim(250, 350)
+    ax[1].set_xlim(400, 600)
+    plt.subplots_adjust(top = 0.98, hspace = 0.15, bottom = 0.05, wspace = 0.15, left = 0.15, right = 0.85)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_RA1M_mod_LW_shifted.png', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_RA1M_mod_LW_shifted.eps', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_RA1M_mod_LW_shifted.pdf', transparent=True)
     plt.show()
 
 
-SEB_correl(RA1M_SEB, RA1M_vars, times = (69,79))
+#SEB_correl(RA1M_mod_SEB, RA1M_mod_vars, times = (69,79), scatter_type= 'spatial')
+
+
+def correl_SEB_sgl(runSEB, runMP, times, phase):
+    fig, ax = plt.subplots(figsize = (12,6))
+    if phase == 'liquid':
+        # LW vs LWP
+        ax.set_xlim(260,330)
+        ax.set_ylim(0,300)
+        ax.scatter(np.ravel(np.mean(runSEB['LW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))), np.ravel(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))), color='#f68080',s=50)
+#        ax.set_ylim(np.min(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=0)),
+#                          np.max(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+#        ax.set_xlim(np.min(np.mean(runSEB['LW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
+#                          np.max(np.mean(runSEB['LW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(np.ravel(np.mean(runSEB['LW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
+            np.ravel(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+        if p <= 0.01:
+            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top', s='r$^{2}$ = %s' % np.round(r2, decimals=2),
+                          fontweight='bold', transform=ax.transAxes, size=24,color='dimgrey')
+        else:
+            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                          s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax.transAxes, size=24, color='dimgrey')
+        ax.set_xlabel('Modelled LW$_{\downarrow}$ (W m$^{-2}$)', size=24, color='dimgrey', rotation=0,labelpad=10)
+        ax.set_ylabel('Modelled LWP \n(g m$^{-2}$)', size=24, color='dimgrey', rotation=0, labelpad=80)
+        lab = ax.text(0.1, 0.85, transform=ax.transAxes, s='a', fontsize=32, fontweight='bold', color='dimgrey')
+        ax.spines['right'].set_visible(False)
+    elif phase == 'ice':
+        # SW vs IWP
+        ax.set_xlim(290,600)
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(np.ravel(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
+            np.ravel(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+        if p <= 0.01:
+            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                              s='r$^{2}$ = %s' % np.round(r2, decimals=2), fontweight='bold',
+                              transform=ax.transAxes, size=24, color='dimgrey')
+        else:
+            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top', s='r$^{2}$ = %s' % np.round(r2, decimals=2),
+                              transform=ax.transAxes, size=24,color='dimgrey')
+        ax.scatter(np.ravel(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))), np.ravel(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
+                             color='#f68080', s=50)
+        #ax.set_ylim(np.min(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=0)),
+        #                  np.max(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+        #ax.set_xlim(np.min(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
+        #                  np.max(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+        ax.set_xlabel('Modelled SW$_{\downarrow}$ (W m$^{-2}$)', size=24, color='dimgrey', rotation=0,labelpad=10)
+        ax.set_ylabel('Modelled IWP \n(g m$^{-2}$)', size=24, color='dimgrey', rotation=0, labelpad=80)
+        lab = ax.text(0.1, 0.85, transform=ax.transAxes, s='b', fontsize=32, fontweight='bold', color='dimgrey')
+        ax.yaxis.tick_right()
+        [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
+        ax.yaxis.set_label_coords(1.3, 0.5)
+        ax.spines['left'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
+    #ax.axis('square')
+      # axs.set_adjustable('box')
+    ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey',pad=10)
+    [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
+    #[l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
+    plt.subplots_adjust(top=0.98, hspace=0.15, bottom=0.1, wspace=0.15, left=0.3, right=0.75)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_RA1M_mod'+phase+'_day.png', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_RA1M_mod'+phase+'_day.eps', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_RA1M_mod'+phase+'_day.pdf', transparent=True)
+    plt.show()
+
+
+
+correl_SEB_sgl(RA1M_mod_SEB, RA1M_mod_vars, times = (47,96), phase = 'ice')
