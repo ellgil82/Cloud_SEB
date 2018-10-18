@@ -1,5 +1,4 @@
-## ------------------------------------------------ CREATE MEAN VERTICAL PROFILES OF ALL MODEL RUNS VS. OBSERVATIONS ------------------------------------------------------ ##
-# File management: make sure all model runs are in one containing folder. Presently, this is /data/mac/ellgil82/cloud_data/um/
+## -------------------------------- LOAD AND PLOT MONTH-LONG TIME SERIES OF MODEL DATA ----------------------------------- ##
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -26,36 +25,35 @@ os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
 
 ## Define functions
 # Load model data
-def load_mp(var):
+def load_mp(config, vars):
+    ''' Import microphysical quantities from the OFCAP/January long runs.
+
+    Inputs:
+    - config: a string that all files should contain that identifies the model configuration, e.g. 'lg_t'
+    - vars: a string that tells the scripts which variables to load - should be either 'water paths', 'mass fractions' or 'both'.
+
+    Outputs: a dictionary containing all the necessary variables to plot for your requested variable.
+
+    Author: Ella Gilbert, 2018.
+
+    '''
     start = time.time()
     pb = []
     pa = []
     pf = []
-    print('\nimporting data from %(var)s...' % locals())
+    print('\nimporting data from %(config)s...' % locals())
     for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/'):
-            if fnmatch.fnmatch(file, '*%(var)s_pb*' % locals()):
+            if fnmatch.fnmatch(file, '*%(config)s_pb*' % locals()):
                 pb.append(file)
-            elif fnmatch.fnmatch(file, '*%(var)s_pa*' % locals()):
+            elif fnmatch.fnmatch(file, '*%(config)s_pa*' % locals()):
                 pa.append(file)
-            elif fnmatch.fnmatch(file, '*%(var)s_pf*' % locals()):
+            elif fnmatch.fnmatch(file, '*%(config)s_pf*' % locals()):
                 pf.append(file)
-    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/')
-    print('\nice mass fraction')
-    # Load only last 12 hours of forecast (i.e. t+12 to t+24, discarding preceding 12 hours as spin-up) for bottom 40 levels,
-    # over the coordinates of the ice shelf (in rotated pole coordinates) and perform unit conversion from kg kg-1 to g kg-1.
-    try:
-        ice_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_ice_in_air',
-                                                  model_level_number=lambda cell: cell < 40, grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9))#,forecast_period=lambda cell: cell >= 12.5))
-    except iris.exceptions.ConstraintMismatchError:
-        print('\n QCF not in this file')
-    print('\nliquid mass fraction')
-    try:
-        liq_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_liquid_water_in_air',
-                                                  model_level_number=lambda cell: cell < 40,grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9))#, forecast_period=lambda cell: cell >= 12.5))
-    except iris.exceptions.ConstraintMismatchError:
-        print('\n QCL not in this file')
-    if os.getcwd() == '/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test':
-        print('\nice water path') # as above, and convert from kg m-2 to g m-2
+    if vars == 'water paths':
+        # Load only last 12 hours of forecast (i.e. t+12 to t+24, discarding preceding 12 hours as spin-up) for bottom 40 levels,
+        # over the coordinates of the ice shelf (in rotated pole coordinates) and perform unit conversion from kg kg-1 to g kg-1.
+        os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/')
+        print('\nice water path')
         try:
             IWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i392') & iris.Constraint(grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))# stash code s02i392
         except iris.exceptions.ConstraintMismatchError:
@@ -65,36 +63,102 @@ def load_mp(var):
             LWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i391') & iris.Constraint(grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))
         except iris.exceptions.ConstraintMismatchError:
             print('\n LWP not in this file')
-        for j in [LWP, IWP,]: #cl_A
+        for j in [LWP, IWP,]:
             j.convert_units('g m-2')
-            j.coord('time').convert_units('hours since 2011-01-01 00:00')
         mean_IWP = np.mean(IWP.data, axis=(2, 3))
         mean_LWP = np.mean(LWP.data, axis=(2, 3))
         AWS14_mean_IWP = np.mean(IWP[:, :,165:167, 98:100].data, axis = (2,3))
         AWS14_mean_LWP = np.mean(LWP[:, :,165:167, 98:100].data, axis = (2,3))
         AWS15_mean_IWP = np.mean(IWP[:, :,127:129, 81:83].data, axis = (2,3))
         AWS15_mean_LWP = np.mean(LWP[:, :,127:129, 81:83].data, axis = (2,3))
+    elif vars == 'mass fractions':
+        os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/') # quicker
+        print('\nice mass fraction')
+        try:
+            ice_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_ice_in_air',
+                                                               model_level_number=lambda cell: cell < 40,
+                                                               grid_longitude=lambda cell: 178.5 < cell < 180.6,
+                                                               grid_latitude=lambda cell: -2.5 < cell < 0.9))  # ,forecast_period=lambda cell: cell >= 12.5))
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n QCF not in this file')
+        print('\nliquid mass fraction')
+        try:
+            liq_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_liquid_water_in_air',
+                                                               model_level_number=lambda cell: cell < 40,
+                                                               grid_longitude=lambda cell: 178.5 < cell < 180.6,
+                                                               grid_latitude=lambda cell: -2.5 < cell < 0.9))  # , forecast_period=lambda cell: cell >= 12.5))
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n QCL not in this file')
+        for i in [ice_mass_frac, liq_mass_frac]:#, qc]:
+            i.convert_units('g kg-1')
+        ## ---------------------------------------- CREATE MODEL VERTICAL PROFILES ------------------------------------------ ##
+        # Create mean vertical profiles for region of interest (Larsen C)
+        print('\ncreating vertical profiles geez...')
+        mean_QCF = np.mean(ice_mass_frac.data, axis=(0, 1, 3, 4))
+        mean_QCL = np.mean(liq_mass_frac.data, axis=(0, 1, 3, 4))  # 0,2,3
+        AWS14_mean_QCF = np.mean(ice_mass_frac[:, :, :40, 165:167, 98:100].data, axis=(0, 1, 3, 4))
+        AWS14_mean_QCL = np.mean(liq_mass_frac[:, :, :40, 165:167, 98:100].data, axis=(0, 1, 3, 4))
+        AWS15_mean_QCF = np.mean(ice_mass_frac[:, :, :40, 127:129, 81:83].data, axis=(0, 1, 3, 4))
+        AWS15_mean_QCL = np.mean(liq_mass_frac[:, :, :40, 127:129, 81:83].data, axis=(0, 1, 3, 4))
+        altitude = ice_mass_frac.coord('level_height').points / 1000
+    elif vars == 'both':
+        os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/')
+        print('\nice water path')  # as above, and convert from kg m-2 to g m-2
+        try:
+            IWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i392') & iris.Constraint(
+                grid_longitude=lambda cell: 178.5 < cell < 180.6, grid_latitude=lambda cell: -2.5 < cell < 0.9,
+                forecast_period=lambda cell: cell >= 12.5))  # stash code s02i392
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n IWP not in this file')
+        print('\nliquid water path')
+        try:
+            LWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i391') & iris.Constraint(
+                grid_longitude=lambda cell: 178.5 < cell < 180.6, grid_latitude=lambda cell: -2.5 < cell < 0.9,
+                forecast_period=lambda cell: cell >= 12.5))
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n LWP not in this file')
+        for j in [LWP, IWP, ]:
+            j.convert_units('g m-2')
+        mean_IWP = np.mean(IWP.data, axis=(2, 3))
+        mean_LWP = np.mean(LWP.data, axis=(2, 3))
+        AWS14_mean_IWP = np.mean(IWP[:, :, 165:167, 98:100].data, axis=(2, 3))
+        AWS14_mean_LWP = np.mean(LWP[:, :, 165:167, 98:100].data, axis=(2, 3))
+        AWS15_mean_IWP = np.mean(IWP[:, :, 127:129, 81:83].data, axis=(2, 3))
+        AWS15_mean_LWP = np.mean(LWP[:, :, 127:129, 81:83].data, axis=(2, 3))
+        print('\nice mass fraction')
+        try:
+            ice_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_ice_in_air',
+                                                               model_level_number=lambda cell: cell < 40,
+                                                               grid_longitude=lambda cell: 178.5 < cell < 180.6,
+                                                               grid_latitude=lambda cell: -2.5 < cell < 0.9,
+                                                               forecast_period=lambda cell: cell >= 12.5))
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n QCF not in this file')
+        print('\nliquid mass fraction')
+        try:
+            liq_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_liquid_water_in_air',
+                                                               model_level_number=lambda cell: cell < 40,
+                                                               grid_longitude=lambda cell: 178.5 < cell < 180.6,
+                                                               grid_latitude=lambda cell: -2.5 < cell < 0.9,
+                                                               forecast_period=lambda cell: cell >= 12.5))
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n QCL not in this file')
+        # Convert units and times to useful ones
+        for i in [ice_mass_frac, liq_mass_frac]:  # , qc]:
+            i.convert_units('g kg-1')
+            i.coord('time').convert_units('hours since 2011-01-01 00:00')
+        ## ---------------------------------------- CREATE MODEL VERTICAL PROFILES ------------------------------------------ ##
+        # Create mean vertical profiles for region of interest (Larsen C)
+        print('\ncreating vertical profiles geez...')
+        mean_QCF = np.mean(ice_mass_frac.data, axis=(0, 1, 3, 4))
+        mean_QCL = np.mean(liq_mass_frac.data, axis=(0, 1, 3, 4))  # 0,2,3
+        AWS14_mean_QCF = np.mean(ice_mass_frac[:, :, :40, 165:167, 98:100].data, axis=(0, 1, 3, 4))
+        AWS14_mean_QCL = np.mean(liq_mass_frac[:, :, :40, 165:167, 98:100].data, axis=(0, 1, 3, 4))
+        AWS15_mean_QCF = np.mean(ice_mass_frac[:, :, :40, 127:129, 81:83].data, axis=(0, 1, 3, 4))
+        AWS15_mean_QCL = np.mean(liq_mass_frac[:, :, :40, 127:129, 81:83].data, axis=(0, 1, 3, 4))
+        altitude = ice_mass_frac.coord('level_height').points / 1000
     constr_lsm = iris.load_cube(pa, iris.Constraint(name ='land_binary_mask', grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9 ))[0,:,:]
     constr_orog = iris.load_cube(pa, iris.Constraint(name ='surface_altitude', grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9 ))[0,:,:]
-    # Convert units and times to useful ones
-    for i in [ice_mass_frac, liq_mass_frac]:#, qc]:
-        i.convert_units('g kg-1')
-        i.coord('time').convert_units('hours since 2011-01-01 00:00')
-    ## ---------------------------------------- CREATE MODEL VERTICAL PROFILES ------------------------------------------ ##
-    # Create mean vertical profiles for region of interest
-    # region of interest = ice shelf. Longitudes of ice shelf along transect =
-    # OR: region of interest = only where aircraft was sampling layer cloud: time 53500 to 62000 = 14:50 to 17:00
-    # Define box: -62 to -61 W, -66.9 to -68 S
-    # Coord: lon = 188:213, lat = 133:207, time = 4:6 (mean of preceding hours)
-    # TESTING: try -63 to -60.8 W, -66.6 to -68.3 = 111:227, 162:213
-    print('\ncreating vertical profiles geez...')
-    mean_QCF = np.mean(ice_mass_frac.data, axis=(0,1,3,4))
-    mean_QCL = np.mean(liq_mass_frac.data, axis=(0,1,3,4)) #0,2,3
-    AWS14_mean_QCF = np.mean(ice_mass_frac[:, :,:40, 165:167, 98:100].data, axis=(0, 1, 3,4))
-    AWS14_mean_QCL = np.mean(liq_mass_frac[:, :,:40, 165:167, 98:100].data, axis=(0, 1, 3,4))
-    AWS15_mean_QCF = np.mean(ice_mass_frac[:, :,:40, 127:129, 81:83].data, axis=(0, 1, 3,4))
-    AWS15_mean_QCL = np.mean(liq_mass_frac[:, :,:40, 127:129, 81:83].data, axis=(0, 1, 3,4))
-    altitude = ice_mass_frac.coord('level_height').points / 1000
     end = time.time()
     print('\nDone, in {:01d} secs'.format(int(end - start)))
     # Find max and min values at each model level
@@ -127,7 +191,7 @@ def load_mp(var):
     #liq_PDF = mean_liq.plot.density(color = 'k', linewidth = 1.5)
     #ice_PDF = mean_ice.plot.density(linestyle = '--', linewidth=1.5, color='k')
     if os.get_cwd() == '/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test':
-        var_dict = {'constr_lsm': constr_lsm, 'constr_orog': constr_orog, 'altitude': altitude, 'mean_QCF': mean_QCF,
+        config_dict = {'constr_lsm': constr_lsm, 'constr_orog': constr_orog, 'altitude': altitude, 'mean_QCF': mean_QCF,
                     'mean_QCL': mean_QCL, 'AWS14_mean_QCF': AWS14_mean_QCF, 'AWS14_mean_QCL': AWS14_mean_QCL,
                     'AWS15_mean_QCF': AWS15_mean_QCF, 'AWS15_mean_QCL': AWS15_mean_QCL,'AWS14_mean_IWP': AWS14_mean_IWP,
                     'AWS15_mean_IWP': AWS15_mean_IWP, 'AWS15_mean_LWP': AWS15_mean_LWP, 'mean_IWP': mean_IWP, 'mean_LWP': mean_LWP}
@@ -304,7 +368,7 @@ def load_met(var):
     '\nDone, in {:01d} secs'.format(int(end - start))
     return var_dict
 
-Jan_mp = load_mp('lg_t')
+Jan_mp = load_mp('lg_t', vars = 'water paths')
 Jan_SEB = load_SEB('lg_t')
 #Jan_met = load_met('lg_t')
 
@@ -934,6 +998,67 @@ def liq_time_srs():
     plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vn11_rad_time_srs_Jan_2011.eps')
     plt.show()
 
+def correl_SEB_sgl(runSEB, runMP, phase):
+    fig, ax = plt.subplots(figsize = (12,6))
+    if phase == 'liquid':
+        # LW vs LWP
+        ax.set_xlim(260,330)
+        ax.set_ylim(0,300)
+        ax.scatter(AWS14_LW_srs, LWP14_srs, color='#f68080',s=50)
+#        ax.set_ylim(np.min(np.mean(runMP['LWP'][:,:, 133:207, 188:213].data, axis=0)),
+#                          np.max(np.mean(runMP['LWP'][:,:, 133:207, 188:213].data, axis=(0))))
+#        ax.set_xlim(np.min(np.mean(runSEB['LW_down'][:,:, 133:207, 188:213].data, axis=(0))),
+#                          np.max(np.mean(runSEB['LW_down'][:,:, 133:207, 188:213].data, axis=(0))))
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(AWS14_LW_srs, LWP14_srs)
+        if p <= 0.01:
+            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top', s='r$^{2}$ = %s' % np.round(r2, decimals=2),
+                          fontweight='bold', transform=ax.transAxes, size=24,color='dimgrey')
+        else:
+            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                          s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax.transAxes, size=24, color='dimgrey')
+        ax.set_xlabel('Modelled LW$_{\downarrow}$ (W m$^{-2}$)', size=24, color='dimgrey', rotation=0,labelpad=10)
+        ax.set_ylabel('Modelled LWP \n(g m$^{-2}$)', size=24, color='dimgrey', rotation=0, labelpad=80)
+        lab = ax.text(0.1, 0.85, transform=ax.transAxes, s='a', fontsize=32, fontweight='bold', color='dimgrey')
+        ax.spines['right'].set_visible(False)
+    elif phase == 'ice':
+        # SW vs IWP
+        ax.set_xlim(290,600)
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(AWS14_SW_srs, IWP14_srs)
+        if p <= 0.01:
+            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                              s='r$^{2}$ = %s' % np.round(r2, decimals=2), fontweight='bold',
+                              transform=ax.transAxes, size=24, color='dimgrey')
+        else:
+            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top', s='r$^{2}$ = %s' % np.round(r2, decimals=2),
+                              transform=ax.transAxes, size=24,color='dimgrey')
+        ax.scatter(AWS14_SW_srs, IWP14_srs, color='#f68080', s=50)
+        #ax.set_ylim(np.min(np.mean(runMP['IWP'][:,:, 133:207, 188:213].data, axis=0)),
+        #                  np.max(np.mean(runMP['IWP'][:,:, 133:207, 188:213].data, axis=(0))))
+        #ax.set_xlim(np.min(np.mean(runSEB['SW_down'][:,:, 133:207, 188:213].data, axis=(0))),
+        #                  np.max(np.mean(runSEB['SW_down'][:,:, 133:207, 188:213].data, axis=(0))))
+        ax.set_xlabel('Modelled SW$_{\downarrow}$ (W m$^{-2}$)', size=24, color='dimgrey', rotation=0,labelpad=10)
+        ax.set_ylabel('Modelled IWP \n(g m$^{-2}$)', size=24, color='dimgrey', rotation=0, labelpad=80)
+        lab = ax.text(0.1, 0.85, transform=ax.transAxes, s='b', fontsize=32, fontweight='bold', color='dimgrey')
+        ax.yaxis.tick_right()
+        [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
+        ax.yaxis.set_label_coords(1.3, 0.5)
+        ax.spines['left'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
+    #ax.axis('square')
+      # axs.set_adjustable('box')
+    ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey',pad=10)
+    [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
+    #[l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
+    plt.subplots_adjust(top=0.98, hspace=0.15, bottom=0.1, wspace=0.15, left=0.3, right=0.75)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/Jan_SEB_v_mp'+phase+'.png', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/Jan_SEB_v_mp'+phase+'.eps', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/Jan_SEB_v_mp'+phase+'.pdf', transparent=True)
+    plt.show()
+
+
+
+correl_SEB_sgl(Jan_SEB, Jan_mp, phase = 'ice')
 
 
 #IWP_time_srs(),
