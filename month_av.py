@@ -71,6 +71,8 @@ def load_mp(config, vars):
         AWS14_mean_LWP = np.mean(LWP[:, :,165:167, 98:100].data, axis = (2,3))
         AWS15_mean_IWP = np.mean(IWP[:, :,127:129, 81:83].data, axis = (2,3))
         AWS15_mean_LWP = np.mean(LWP[:, :,127:129, 81:83].data, axis = (2,3))
+        config_dict = {'AWS14_mean_IWP': AWS14_mean_IWP,'AWS15_mean_IWP': AWS15_mean_IWP,
+                       'AWS15_mean_LWP': AWS15_mean_LWP, 'mean_IWP': mean_IWP, 'mean_LWP': mean_LWP}
     elif vars == 'mass fractions':
         os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/') # quicker
         print('\nice mass fraction')
@@ -101,6 +103,9 @@ def load_mp(config, vars):
         AWS15_mean_QCF = np.mean(ice_mass_frac[:, :, :40, 127:129, 81:83].data, axis=(0, 1, 3, 4))
         AWS15_mean_QCL = np.mean(liq_mass_frac[:, :, :40, 127:129, 81:83].data, axis=(0, 1, 3, 4))
         altitude = ice_mass_frac.coord('level_height').points / 1000
+        config_dict = {'altitude': altitude,'mean_QCF': mean_QCF,'mean_QCL': mean_QCL,
+                       'AWS14_mean_QCF': AWS14_mean_QCF, 'AWS14_mean_QCL': AWS14_mean_QCL,
+                       'AWS15_mean_QCF': AWS15_mean_QCF, 'AWS15_mean_QCL': AWS15_mean_QCL}
     elif vars == 'both':
         os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/')
         print('\nice water path')  # as above, and convert from kg m-2 to g m-2
@@ -157,6 +162,11 @@ def load_mp(config, vars):
         AWS15_mean_QCF = np.mean(ice_mass_frac[:, :, :40, 127:129, 81:83].data, axis=(0, 1, 3, 4))
         AWS15_mean_QCL = np.mean(liq_mass_frac[:, :, :40, 127:129, 81:83].data, axis=(0, 1, 3, 4))
         altitude = ice_mass_frac.coord('level_height').points / 1000
+        config_dict = {'altitude': altitude,'mean_QCF': mean_QCF,'mean_QCL': mean_QCL,
+                       'AWS14_mean_QCF': AWS14_mean_QCF, 'AWS14_mean_QCL': AWS14_mean_QCL,
+                       'AWS15_mean_QCF': AWS15_mean_QCF, 'AWS15_mean_QCL': AWS15_mean_QCL,
+                       'AWS14_mean_IWP': AWS14_mean_IWP,'AWS15_mean_IWP': AWS15_mean_IWP,
+                       'AWS15_mean_LWP': AWS15_mean_LWP, 'mean_IWP': mean_IWP, 'mean_LWP': mean_LWP}
     constr_lsm = iris.load_cube(pa, iris.Constraint(name ='land_binary_mask', grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9 ))[0,:,:]
     constr_orog = iris.load_cube(pa, iris.Constraint(name ='surface_altitude', grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9 ))[0,:,:]
     end = time.time()
@@ -190,16 +200,7 @@ def load_mp(config, vars):
     # Calculate PDF of ice and liquid water contents
     #liq_PDF = mean_liq.plot.density(color = 'k', linewidth = 1.5)
     #ice_PDF = mean_ice.plot.density(linestyle = '--', linewidth=1.5, color='k')
-    if os.get_cwd() == '/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test':
-        config_dict = {'constr_lsm': constr_lsm, 'constr_orog': constr_orog, 'altitude': altitude, 'mean_QCF': mean_QCF,
-                    'mean_QCL': mean_QCL, 'AWS14_mean_QCF': AWS14_mean_QCF, 'AWS14_mean_QCL': AWS14_mean_QCL,
-                    'AWS15_mean_QCF': AWS15_mean_QCF, 'AWS15_mean_QCL': AWS15_mean_QCL,'AWS14_mean_IWP': AWS14_mean_IWP,
-                    'AWS15_mean_IWP': AWS15_mean_IWP, 'AWS15_mean_LWP': AWS15_mean_LWP, 'mean_IWP': mean_IWP, 'mean_LWP': mean_LWP}
-    else:
-        var_dict = { 'constr_lsm': constr_lsm, 'constr_orog': constr_orog, 'altitude': altitude, 'mean_QCF': mean_QCF,
-                     'mean_QCL': mean_QCL, 'AWS14_mean_QCF': AWS14_mean_QCF, 'AWS14_mean_QCL': AWS14_mean_QCL,
-                     'AWS15_mean_QCF': AWS15_mean_QCF, 'AWS15_mean_QCL': AWS15_mean_QCL}
-    return  var_dict
+    return  config_dict, constr_lsm, constr_orog
 
 # 'box_QCF': box_QCF, 'box_QCL': box_QCL,
 #'cl_A': cl_A,'qc': qc,'ice_5': ice_5, 'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'min_QCF': min_QCF, 'max_QCF': max_QCF,'IWP': IWP, 'LWP':LWP,
@@ -423,12 +424,14 @@ def construct_srs(var_name):
         series = np.append(series, a)
     return series
 
-IWP14_srs = construct_srs(Jan_mp['AWS14_mean_IWP'])
-LWP14_srs = construct_srs(Jan_mp['AWS14_mean_LWP'])
-IWP15_srs = construct_srs(Jan_mp['AWS15_mean_IWP'])
-LWP15_srs = construct_srs(Jan_mp['AWS15_mean_LWP'])
-box_IWP_srs = construct_srs(Jan_mp['mean_IWP'])
-box_LWP_srs = construct_srs(Jan_mp['mean_LWP'])
+os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test')
+
+#IWP14_srs = construct_srs(Jan_mp['AWS14_mean_IWP'])
+#LWP14_srs = construct_srs(Jan_mp['AWS14_mean_LWP'])
+#IWP15_srs = construct_srs(Jan_mp['AWS15_mean_IWP'])
+#LWP15_srs = construct_srs(Jan_mp['AWS15_mean_LWP'])
+#box_IWP_srs = construct_srs(Jan_mp['mean_IWP'])
+#box_LWP_srs = construct_srs(Jan_mp['mean_LWP'])
 AWS14_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'][:,:,165:167, 98:100].data, axis = (2,3)))
 AWS14_LW_srs = construct_srs(np.mean(Jan_SEB['LW_down'][:,:,165:167, 98:100].data, axis = (2,3)))
 AWS15_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'][:,:,127:129, 81:83].data, axis = (2,3)))
@@ -439,156 +442,13 @@ Jan_SEB['SW_down'].coord('time').convert_units('seconds since 1970-01-01 00:00:0
 Time_srs = construct_srs(np.swapaxes(Jan_SEB['SW_down'].coord('time').points,0,1))
 Time_srs = matplotlib.dates.num2date(matplotlib.dates.epoch2num(Time_srs))
 
+AWS14_SEB_Jan[AWS14_SEB_Jan['LWin'] < -200] = np.nan
+AWS15_Jan[AWS15_Jan['Lin'] < -200] = np.nan
 
-def load_obs():
-    ## ----------------------------------------------- SET UP VARIABLES --------------------------------------------------##
-    ## Load core data
-    print('\nYes yes cuzzy, pretty soon you\'re gonna have some nice core data...')
-    bsl_path_core = '/data/mac/ellgil82/cloud_data/Constantino_Oasis_Peninsula/flight152/core_masin_20110118_r001_flight152_1hz.nc'
-    cubes = iris.load(bsl_path_core)
-    RH = iris.load_cube(bsl_path_core, 'relative_humidity')
-    core_temp = cubes[34] #de-iced temperature
-    core_temp = core_temp.data[84:15432] # trim so times match
-    core_temp = core_temp -273.15
-    plane_lat = iris.load_cube(bsl_path_core, 'latitude')
-    plane_lat = plane_lat.data[84:15432]
-    plane_lon = iris.load_cube(bsl_path_core, 'longitude')
-    plane_lon = plane_lon.data[84:15432]
-    plane_alt = iris.load_cube(bsl_path_core, 'altitude')
-    plane_alt = plane_alt.data[84:15432]
-    core_time =  iris.load_cube(bsl_path_core, 'time')
-    core_time = core_time.data[84:15432]
-    ## Load CIP data
-    # Load CIP from .npz
-    print('\nOi mate, right now I\'m loading some siiiiick CIP data...')
-    path = '/data/mac/ellgil82/cloud_data/Constantino_Oasis_Peninsula/'
-    s_file = 'flight152_s_v2.npz'
-    npz_s=np.load(path+s_file)
-    m_file = 'flight152_m_v2.npz'
-    npz_m = np.load(path + m_file)
-    n_file = 'flight152_n_v2.npz'
-    npz_n = np.load(path + n_file)
-    CIP_time = npz_m['time']
-    CIP_bound = npz_s['TestPlot_all_y']
-    m_all = npz_m['TestPlot_all_y']
-    IWC = npz_m['TestPlot_HI_y']+ npz_m['TestPlot_MI_y']
-    S_LI = npz_m['TestPlot_LI_y']+npz_m['TestPlot_S_y']
-    n_drop_CIP = npz_n['TestPlot_LI_y']+npz_n['TestPlot_S_y']
-    # Load CAS data
-    CAS_file = '/data/mac/ellgil82/cloud_data/netcdfs/flight152_cas.nc'
-    # Create variables
-    print ('\nOn dis CAS ting...')
-    LWC_cas = iris.load_cube(CAS_file, 'liquid water content calculated from CAS ')
-    LWC_cas = LWC_cas.data
-    CAS_time = iris.load_cube(CAS_file, 'time')
-    CAS_time = CAS_time.data
-    aer = iris.load_cube(CAS_file, 'Aerosol concentration spectra measured by cas ')
-    n_drop_CAS = np.nansum(aer[8:,:].data, axis=0)
-    n_drop =  n_drop_CAS[:15348]
-    ## ----------------------------------------- PERFORM CALCULATIONS ON DATA --------------------------------------------##
-    # Find number concentrations of ice only
-    n_ice = npz_s['TestPlot_HI_z']+npz_s['TestPlot_MI_z']
-    n_ice = n_ice * 2. # correct data (as advised by TLC and done by Constantino for their 2016 and 2017 papers)
-    n_ice = n_ice/1000 #in cm-3
-    n_ice = n_ice[1:]
-    CIP_mean_ice = []
-    j = np.arange(64)
-    for i in j:#
-        m = np.mean(n_ice[:,i])
-        CIP_mean_ice = np.append(CIP_mean_ice,m)
-    # Convert times
-    unix_time = 1295308800
-    CIP_real_time = CIP_time + unix_time
-    s = pd.Series(CIP_real_time)
-    CIP_time = pd.to_datetime(s, unit='s')
-    core_time = core_time + unix_time
-    core_time = pd.Series(core_time)
-    core_time = pd.to_datetime(core_time, unit='s')
-    CAS_time = np.ndarray.astype(CAS_time, float)
-    CAS_time = CAS_time / 1000
-    CAS_real_time = CAS_time + unix_time
-    s = pd.Series(CAS_real_time)
-    CAS_time = pd.to_datetime(s, unit='s')
-    # Make times match
-    CAS_time_short = CAS_time[:15348]
-    CIP_time_short = CIP_time[1:]
-    ## ------------------------------------- COMPUTE WHOLE-FLIGHT STATISTICS ---------------------------------------------##
-    # FIND IN-CLOUD LEGS
-    # Find only times when flying over ice shelf
-    print('\nYEAH BUT... IS IT CLOUD DOE BRUH???')
-    idx = np.where(plane_lon.data > -62) # only in the region of interest (box)
-    idx = idx[0]
-    # Find only times when flying in cloud
-    # Find indices of gridcells where cloud is present
-    def is_cloud(): #should be a range of time indices e.g. [87:1863]
-        cloud_bins = aer[8:,idx[0]:idx[-1]].data # particles > 1.03 um
-        cl_sum = []
-        for each_sec in np.arange(len(cloud_bins[0,:])): # at each second
-            f = np.sum(cloud_bins[:, each_sec])
-            cl_sum = np.append(cl_sum,f)
-            cloud_idx = np.nonzero(cl_sum)
-            cloud_idx = cloud_idx[0]
-        return cloud_idx
-    cloud_idx = is_cloud()
-    cloud_idx = cloud_idx + idx[0] # Calculate indices relative to length of original dataset, not subset
-    # Create array of only in-cloud data within box
-    IWC_array = []
-    LWC_array = []
-    alt_array_ice = []
-    alt_array_liq = []
-    nconc_ice = []
-    drop_array = []
-    nconc_ice_all = np.sum(n_ice, axis=1)
-    # Calculate number concentration averages only when the instrument detects liquid/ice particles
-    for i in cloud_idx:
-        if nconc_ice_all[i] > 0.00000001:
-            IWC_array.append(IWC[i])
-            alt_array_ice.append(plane_alt[i])
-            nconc_ice.append(nconc_ice_all[i])
-    for i in cloud_idx:
-        if n_drop[i] > 1.0: # same threshold as in Lachlan-Cope et al. (2016)
-            drop_array.append(n_drop[i])
-            LWC_array.append(LWC_cas[i])
-            alt_array_liq.append(plane_alt[i])
-        #else:
-        #    print('naaaaaah mate, nutn \'ere like')
-    box_nconc_liq = np.mean(drop_array)
-    box_nconc_ice = np.mean(nconc_ice)
-    box_LWC = np.nanmean(LWC_array)
-    box_IWC = np.nanmean(IWC_array)
-    # Calculate mean values at each height in the model
-    # Create bins from model data
-    print('\nbinning by altitude...')
-    #Load model data to get altitude bins
-    ice_mass_frac = iris.load_cube('/data/mac/ellgil82/cloud_data/um/means/20110118T0000Z_Peninsula_km1p5_Smith_tnuc_pc000.pp', 'mass_fraction_of_cloud_ice_in_air')
-    bins =  ice_mass_frac.coord('level_height').points.tolist()
-    # Find index of model level bin to which aircraft data would belong and turn data into pandas dataframe
-    icy = {'alt_idx': np.digitize(alt_array_ice, bins = bins), 'IWC': IWC_array,  'n_ice': nconc_ice}
-    watery = {'alt_idx': np.digitize(alt_array_liq, bins = bins), 'LWC': LWC_array, 'n_drop': drop_array}
-    ice_df = pd.DataFrame(data = icy)
-    liq_df = pd.DataFrame(data = watery)
-    print('\ncreating observed profiles...')
-    # Use groupby to group by altitude index and mean over the groups
-    ice_grouped = ice_df.groupby(['alt_idx']).mean()
-    liq_grouped = liq_df.groupby(['alt_idx']).mean()
-    IWC_profile = ice_grouped['IWC'].values
-    IWC_profile = np.append(IWC_profile, [0,0,0,0])
-    IWC_profile = np.append([0,0,0], IWC_profile)
-    LWC_profile = liq_grouped['LWC'].values
-    LWC_profile = np.insert(LWC_profile, 2, [0, 0])
-    LWC_profile = np.insert(LWC_profile, 22, [0,0,0,0] )
-    LWC_profile = np.append(LWC_profile, [0,0,0,0,0,0])
-    LWC_profile = np.append([0,0,0,0], LWC_profile)
-    drop_profile = liq_grouped['n_drop'].values
-    drop_profile = np.insert(drop_profile, 2, [0, 0])
-    drop_profile = np.insert(drop_profile, 22, [0,0,0,0] )
-    drop_profile = np.append(drop_profile, [0,0,0,0,0,0])
-    drop_profile = np.append([0,0,0,0],drop_profile)
-    n_ice_profile = ice_grouped['n_ice'].values
-    n_ice_profile = np.append(n_ice_profile, [0,0,0,0])
-    n_ice_profile = np.append([0,0,0], n_ice_profile)
-    return IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_liq, drop_profile, drop_array, nconc_ice, box_IWC, box_LWC, box_nconc_ice, box_nconc_liq, n_ice_profile
-
+AWS15_dif_SW = AWS15_SW_srs - AWS15_Jan['Sin'][12:]
+AWS15_dif_LW = AWS15_LW_srs - AWS15_Jan['Lin'][12:]
+AWS14_dif_SW = AWS14_SW_srs - AWS14_SEB_Jan['SWin_corr'][24::2]
+AWS14_dif_LW = AWS14_LW_srs - AWS14_SEB_Jan['LWin'][24::2]
 
 ## ================================================= PLOTTING ======================================================= ##
 
@@ -704,7 +564,7 @@ def mod_profile():
     plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vertical_profiles_OFCAP.png', transparent = True)
     plt.show()
 
-mod_profile()
+#mod_profile()
 
 
 def T_plot():
@@ -813,7 +673,7 @@ def correl_plot():
     plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/correlations_Jan_2011.pdf', transparent=True)
     #plt.show()
 
-#correl_plot()
+correl_plot()
 
 from matplotlib.lines import Line2D
 
@@ -873,7 +733,7 @@ def IWP_time_srs():
 
 
 def rad_time_srs():
-    model_runs = [Jan_mp]
+    model_runs = [Jan_SEB]
     fig, ax = plt.subplots(2,1, sharex = True, figsize = (30,14))
     for axs in ax:
         axs.spines['top'].set_visible(False)
@@ -883,14 +743,16 @@ def rad_time_srs():
     plot = 0
     lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i', 9: 'j', 10: 'k', 11: 'l' }
     for run in model_runs:
-        os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
+        os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/')
         print('\nPLOTTING DIS BIATCH...')
         ax[plot].spines['right'].set_visible(False)
         ax[plot].plot(Time_srs, AWS14_SW_srs, label = 'AWS14 SW$_{\downarrow}$: modelled', linewidth = 2,  linestyle = '--', color = 'darkred')
-        #ax[plot].plot(Time_srs,AWS15_SW_srs, label='AWS15 SW$_{\downarrow}$', linewidth=2, color='darkblue')
+        ax[plot].plot(Time_srs,AWS15_SW_srs, label='AWS15 SW$_{\downarrow}$', linewidth=2, linestyle = '--', color='darkblue')
         #ax[plot].plot(Time_srs,box_SW_srs, label='Cloud box SW$_{\downarrow}$', linewidth=2, linestyle='--', color='k')
         ax2 = ax[plot].twiny()
-        ax2.plot(AWS14_SEB_Jan['SWin_corr'], label = 'AWS14 SW$_{\downarrow}$: observed', linewidth = 2,  color = 'darkred')
+        ax2.set_xlim(1.5,max(AWS14_SEB_Jan['Time']))
+        ax2.plot(AWS14_SEB_Jan['Time'], AWS14_SEB_Jan['SWin_corr'], label = 'AWS14 SW$_{\downarrow}$: observed', linewidth = 2,  color = 'darkred')
+        ax2.plot(AWS15_Jan['Jday'], AWS15_Jan['Sin'], label = 'AWS15 SW$_{\downarrow}$: observed', linewidth = 2,  color = 'darkblue')
         ax2.xaxis.set_visible(False)
         ax2.yaxis.set_visible(False)
         ax2.spines['top'].set_visible(False)
@@ -905,11 +767,13 @@ def rad_time_srs():
         ax[plot+1].set_ylim(150,350)
         ax[plot+1].set_yticks([ 200, 300])
         ax[plot+1].plot(Time_srs,AWS14_LW_srs, label = 'AWS14 LW$_{\downarrow}$', linewidth = 2,  linestyle = '--',color = 'darkred')
-        #ax[plot+1].plot(Time_srs,AWS15_LW_srs, label = 'AWS15_LW$_{\downarrow}$', linewidth=2,color='darkblue')
+        ax[plot+1].plot(Time_srs,AWS15_LW_srs, label = 'AWS15_LW$_{\downarrow}$', linewidth=2, linestyle = '--', color='darkblue')
         #ax[plot+1].plot(Time_srs,box_LW_srs, label = 'Cloud box LW$_{\downarrow}$', linewidth=2, linestyle='--', color='k')
         ax[plot+1].tick_params(axis='both', labelsize=28, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
         ax2 = ax[plot+1].twiny()
-        ax2.plot(AWS14_SEB_Jan['LWin'], label = 'AWS14 LW$_{\downarrow}$: observed', linewidth = 2,  color = 'darkred')
+        ax2.plot(AWS14_SEB_Jan['Time'],AWS14_SEB_Jan['LWin'], label = 'AWS14 LW$_{\downarrow}$: observed', linewidth = 2,  color = 'darkred')
+        ax2.set_xlim(1.5,max(AWS14_SEB_Jan['Time']))
+        ax2.plot(AWS15_Jan['Jday'], AWS15_Jan['Lin'], label='AWS15 LW$_{\downarrow}$: observed', linewidth=2, color='darkblue')
         ax2.xaxis.set_visible(False)
         ax2.yaxis.set_visible(False)
         ax2.spines['top'].set_visible(False)
@@ -927,14 +791,16 @@ def rad_time_srs():
     plt.setp(ax[1].get_xticklabels()[-3], visible=False)
     plt.setp(ax[1].get_xticklabels()[-1], visible=False)
     lns = [Line2D([0], [0], color='darkred', linewidth=3),
+           Line2D([0], [0], color='darkred', linestyle = '--', linewidth=3),
            Line2D([0], [0], color='darkblue', linewidth=3),
-           Line2D([0], [0], color='k', linestyle='--', linewidth=3)]
-    labs = [ 'AWS 14','AWS 15', 'Ice shelf mean']#  '                      ','                      '
-    lgd = plt.legend(lns, labs, ncol=2, bbox_to_anchor=(1., 2.), borderaxespad=0., loc='best', prop={'size': 24})
+           Line2D([0], [0], color='darkblue', linestyle = '--', linewidth=3)]
+    labs = ['AWS 14, observed', 'AWS 14, modelled','AWS 15, observed', 'AWS 15, modelled']
+    lgd = plt.legend(lns, labs, ncol=2, bbox_to_anchor=(1., 2.12), borderaxespad=0., loc='best', prop={'size': 24})
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey')
     lgd.get_frame().set_linewidth(0.0)
     plt.subplots_adjust(left=0.1, bottom=0.15, right=0.98, top=0.97, wspace = 0.05, hspace = 0.1)
+    ax[1].tick_params(axis='both', labelsize=28, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
     fig.text(0.5, 0.04, 'Time (hours)', fontsize=24, fontweight = 'bold', ha = 'center', va = 'center', color = 'dimgrey')
     fig.text(0.03, 0.8, 'SW$_{\downarrow}$\n(W m$^{-2}$)', fontsize=30, ha= 'center', va='center', rotation = 0, color = 'dimgrey')
     fig.text(0.03, 0.4, 'LW$_{\downarrow}$\n(W m$^{-2}$)', fontsize=30, ha='center', va='center', color = 'dimgrey', rotation=0)
@@ -942,7 +808,8 @@ def rad_time_srs():
     plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vn11_rad_time_srs_AWS14_Jan_2011.eps')
     plt.show()
 
-rad_time_srs()
+#rad_time_srs()
+
 
 def liq_time_srs():
     model_runs = [Jan_mp]
@@ -1061,6 +928,8 @@ def correl_SEB_sgl(runSEB, runMP, phase):
 correl_SEB_sgl(Jan_SEB, Jan_mp, phase = 'ice')
 
 
+def box_plot():
+    
 #IWP_time_srs(),
 #QCF_plot(), QCL_plot()
 
