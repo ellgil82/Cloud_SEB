@@ -71,7 +71,7 @@ def load_mp(config, vars):
         AWS14_mean_LWP = np.mean(LWP[:, :,165:167, 98:100].data, axis = (2,3))
         AWS15_mean_IWP = np.mean(IWP[:, :,127:129, 81:83].data, axis = (2,3))
         AWS15_mean_LWP = np.mean(LWP[:, :,127:129, 81:83].data, axis = (2,3))
-        config_dict = {'AWS14_mean_IWP': AWS14_mean_IWP,'AWS15_mean_IWP': AWS15_mean_IWP,
+        config_dict = {'AWS14_mean_IWP': AWS14_mean_IWP,'AWS15_mean_IWP': AWS15_mean_IWP, 'AWS14_mean_LWP': AWS14_mean_LWP,
                        'AWS15_mean_LWP': AWS15_mean_LWP, 'mean_IWP': mean_IWP, 'mean_LWP': mean_LWP}
     elif vars == 'mass fractions':
         os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/') # quicker
@@ -206,7 +206,16 @@ def load_mp(config, vars):
 #'cl_A': cl_A,'qc': qc,'ice_5': ice_5, 'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'min_QCF': min_QCF, 'max_QCF': max_QCF,'IWP': IWP, 'LWP':LWP,
 # 'min_QCL': min_QCL, 'real_lon': real_lon, 'real_lat':real_lat,'box_mean_IWP': box_mean_IWP, 'box_mean_LWP': box_mean_LWP,'AWS14_mean_LWP': AWS14_mean_LWP,
 
-def load_SEB(config):
+def load_SEB(config, vars):
+    ''' Import surface energy balance quantities from an OFCAP model run.
+
+    Inputs:
+        - config = model configuration used
+        - vars = string describing which variables you want to output. Should be either 'downwelling' or 'SEB'.
+
+    Author: Ella Gilbert, 2018.
+
+    '''
     pa = []
     pf = []
     print('\nimporting data from %(config)s...' % locals())
@@ -216,58 +225,67 @@ def load_SEB(config):
         elif fnmatch.fnmatch(file,  '*%(config)s_pa*' % locals()):
             pa.append(file)
     os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/')
-    print('\n downwelling longwave')
+    print('\n Downwelling longwave')
     try:
         LW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_longwave_flux',grid_longitude=lambda cell: 178.5 < cell < 180.6, grid_latitude=lambda cell: -2.5 < cell < 0.9,
                                                      forecast_period=lambda cell: cell >= 12.5))
     except iris.exceptions.ConstraintMismatchError:
         print('\n Downwelling LW not in this file')
-    print('\ndownwelling shortwave')
+    print('\nDownwelling shortwave')
     try:
         SW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_shortwave_flux_in_air',
                                                            grid_longitude=lambda cell: 178.5 < cell < 180.6,
                                                            grid_latitude=lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))
     except iris.exceptions.ConstraintMismatchError:
         print('\n Downwelling SW not in this file')
-    # print('\nice water path') # as above, and convert from kg m-2 to g m-2
-    # try:
-    #    IWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i392') & iris.Constraint(grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))# stash code s02i392
-    # except iris.exceptions.ConstraintMismatchError:
-    #    print('\n IWP not in this file')
-    # print('\nliquid water path')
-    # try:
-    #    LWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i391') & iris.Constraint(grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))
-    # except iris.exceptions.ConstraintMismatchError:
-    #    print('\n LWP not in this file')
-    #lsm = iris.load_cube(pa, 'land_binary_mask')
-    #orog = iris.load_cube(pa, 'surface_altitude')
-    #LW_net = iris.load_cube(pf, 'surface_net_downward_longwave_flux')
-    #SH =  iris.load_cube(pf, 'surface_upward_sensible_heat_flux')
-    #LH = iris.load_cube(pf, 'surface_upward_latent_heat_flux')
-    #LW_up = iris.load_cube(pf, 'upwelling_longwave_flux_in_air')
-    #SW_up = iris.load_cube(pf, 'upwelling_shortwave_flux_in_air')
-    #else:
-    #    SW_net = iris.load_cube(pf, 'surface_net_downward_shortwave_flux')
-    #    Ts = iris.load_cube(pa, 'surface_temperature')
-    #    Ts.convert_units('celsius')
-    #for i in [SW_up, LW_up,]:
-    #    real_lon, real_lat = rotate_data(i, 2, 3)
-    #for j in [SW_down, LW_down, LH, SH, LW_net]:#,SW_net_surf,  Ts
-    #    real_lon, real_lat = rotate_data(j, 1, 2)
-    #for k in [lsm, orog]:
-    #    real_lon, real_lat = rotate_data(k, 0, 1)
-    # Convert times to useful ones
-    #for i in [SW_down, SW_up, LW_net, LW_down, LW_up, LH, SH]:#, Ts, SW_net_surf,
-    #    i.coord('time').convert_units('hours since 2011-01-18 00:00')
-    #LH = 0 - LH.data
-    #SH = 0 - SH.data
-    #if config =='CASIM_24':
-    #    var_dict = {'real_lon': real_lon, 'real_lat': real_lat, 'SW_up': SW_up, 'SW_down': SW_down,
-    #                'LH': LH, 'SH': SH, 'LW_up': LW_up, 'LW_down': LW_down, 'LW_net': LW_net, 'SW_net': SW_net}
-    #else:
-    #    var_dict = {'real_lon': real_lon, 'real_lat':real_lat,  'SW_up': SW_up, 'SW_down': SW_down,
-    #                'LH': LH, 'SH': SH, 'LW_up': LW_up, 'LW_down': LW_down, 'LW_net': LW_net, 'SW_net': SW_net, 'Ts': Ts}
-    var_dict = {'LW_down': LW_down, 'SW_down': SW_down}
+    if vars == 'SEB':
+        print('\nUpwelling shortwave')
+        try:
+            SW_up = iris.load_cube(pf, iris.Constraint(name='upwelling_shortwave_flux_in_air',
+                                                         grid_longitude=lambda cell: 178.5 < cell < 180.6,
+                                                         grid_latitude=lambda cell: -2.5 < cell < 0.9,
+                                                       model_level_number = 0, forecast_period=lambda cell: cell >= 12.5))
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n Upwelling SW not in this file')
+        print('\nUpwelling longwave')
+        try:
+            LW_up = iris.load_cube(pf, iris.Constraint(name='upwelling_longwave_flux_in_air',
+                                                       grid_longitude=lambda cell: 178.5 < cell < 180.6,
+                                                       grid_latitude=lambda cell: -2.5 < cell < 0.9,
+                                                       model_level_number=0,
+                                                       forecast_period=lambda cell: cell >= 12.5))
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n Upwelling LW not in this file')
+        print('\nSensible heat')
+        try:
+            SH = iris.load_cube(pf, iris.Constraint(name='surface_upward_sensible_heat_flux',
+                                                       grid_longitude=lambda cell: 178.5 < cell < 180.6,
+                                                       grid_latitude=lambda cell: -2.5 < cell < 0.9,
+                                                       forecast_period=lambda cell: cell >= 12.5))
+            SH = 0 - SH.data
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n SH not in this file')
+        print('\nLatent heat')
+        try:
+            LH = iris.load_cube(pf, iris.Constraint(name='surface_upward_latent_heat_flux',
+                                                       grid_longitude=lambda cell: 178.5 < cell < 180.6,
+                                                       grid_latitude=lambda cell: -2.5 < cell < 0.9,
+                                                       forecast_period=lambda cell: cell >= 12.5))
+            LH = 0 - LH.data
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n LH not in this file')
+        print('\nSurface temperature')
+        try:
+            Ts = iris.load_cube(pa, iris.Constraint(name='surface_temperature',
+                                                    grid_longitude=lambda cell: 178.5 < cell < 180.6,
+                                                    grid_latitude=lambda cell: -2.5 < cell < 0.9,
+                                                    forecast_period=lambda cell: cell >= 12.5))
+            Ts.convert_units('celsius')
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n Ts not in this file')
+        var_dict = {'SW_up': SW_up, 'SW_down': SW_down, 'LH': LH, 'SH': SH, 'LW_up': LW_up, 'LW_down': LW_down,  'Ts': Ts}
+    elif vars == 'downwelling':
+        var_dict = {'LW_down': LW_down, 'SW_down': SW_down}
     return var_dict
 
 def load_met(var):
@@ -369,8 +387,8 @@ def load_met(var):
     '\nDone, in {:01d} secs'.format(int(end - start))
     return var_dict
 
-Jan_mp = load_mp('lg_t', vars = 'water paths')
-Jan_SEB = load_SEB('lg_t')
+#Jan_mp, constr_lsm, constr_orog = load_mp('lg_t', vars = 'water paths')
+Jan_SEB = load_SEB(config = 'lg_t', vars = 'SEB')
 #Jan_met = load_met('lg_t')
 
 
@@ -389,8 +407,8 @@ def load_AWS(station, period):
         Jan18 = AWS.loc[(AWS['Day'] <= 38)]
     return Jan18
 
-AWS15_Jan = load_AWS('AWS15', period = 'January')
-AWS14_SEB_Jan  = load_AWS('AWS14_SEB', period = 'January')
+AWS15_Jan = load_AWS('AWS15', period = 'OFCAP')
+AWS14_SEB_Jan  = load_AWS('AWS14_SEB', period = 'OFCAP')
 
 
 def print_stats():
@@ -411,7 +429,7 @@ def print_stats():
         means = model_mean.mean(axis=0)
         print means
 
-#print_stats()
+print_stats()
 
 
 def construct_srs(var_name):
@@ -426,12 +444,12 @@ def construct_srs(var_name):
 
 os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test')
 
-#IWP14_srs = construct_srs(Jan_mp['AWS14_mean_IWP'])
-#LWP14_srs = construct_srs(Jan_mp['AWS14_mean_LWP'])
-#IWP15_srs = construct_srs(Jan_mp['AWS15_mean_IWP'])
-#LWP15_srs = construct_srs(Jan_mp['AWS15_mean_LWP'])
-#box_IWP_srs = construct_srs(Jan_mp['mean_IWP'])
-#box_LWP_srs = construct_srs(Jan_mp['mean_LWP'])
+IWP14_srs = construct_srs(Jan_mp['AWS14_mean_IWP'])
+LWP14_srs = construct_srs(Jan_mp['AWS14_mean_LWP'])
+IWP15_srs = construct_srs(Jan_mp['AWS15_mean_IWP'])
+LWP15_srs = construct_srs(Jan_mp['AWS15_mean_LWP'])
+box_IWP_srs = construct_srs(Jan_mp['mean_IWP'])
+box_LWP_srs = construct_srs(Jan_mp['mean_LWP'])
 AWS14_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'][:,:,165:167, 98:100].data, axis = (2,3)))
 AWS14_LW_srs = construct_srs(np.mean(Jan_SEB['LW_down'][:,:,165:167, 98:100].data, axis = (2,3)))
 AWS15_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'][:,:,127:129, 81:83].data, axis = (2,3)))
@@ -673,7 +691,7 @@ def correl_plot():
     plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/correlations_Jan_2011.pdf', transparent=True)
     #plt.show()
 
-correl_plot()
+#correl_plot()
 
 from matplotlib.lines import Line2D
 
@@ -688,7 +706,7 @@ def IWP_time_srs():
     plot = 0
     lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i', 9: 'j', 10: 'k', 11: 'l' }
     for run in model_runs:
-        os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
+        os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/')
         print('\nPLOTTING DIS BIATCH...')
         ax[plot].spines['right'].set_visible(False)
         ax[plot].plot(Time_srs,IWP14_srs*1000, label = 'AWS14 IWP', linewidth = 2,  color = 'darkred')
@@ -724,13 +742,14 @@ def IWP_time_srs():
         plt.setp(ln, color='dimgrey')
     lgd.get_frame().set_linewidth(0.0)
     plt.subplots_adjust(left=0.1, bottom=0.15, right=0.98, top=0.97, wspace = 0.05, hspace = 0.1)
-    fig.text(0.5, 0.04, 'Time (hours)', fontsize=24, fontweight = 'bold', ha = 'center', va = 'center', color = 'dimgrey')
+    #fig.text(0.5, 0.04, 'Time (hours)', fontsize=24, fontweight = 'bold', ha = 'center', va = 'center', color = 'dimgrey')
     fig.text(0.03, 0.8, 'IWP \n(g m$^{-2}$)', fontsize=30, ha= 'center', va='center', rotation = 0, color = 'dimgrey')
     fig.text(0.03, 0.4, 'LWP \n(g m$^{-2}$)', fontsize=30, ha='center', va='center', color = 'dimgrey', rotation=0)
-    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vn11_water_path_time_srs_Jan_2011.png')
-    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vn11_water_path_time_srs_Jan_2011.eps')
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vn11_water_path_time_srs_OFCAP.png')
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vn11_water_path_time_srs_OFCAP.eps')
     plt.show()
 
+IWP_time_srs()
 
 def rad_time_srs():
     model_runs = [Jan_SEB]
@@ -869,14 +888,14 @@ def correl_SEB_sgl(runSEB, runMP, phase):
     fig, ax = plt.subplots(figsize = (12,6))
     if phase == 'liquid':
         # LW vs LWP
-        ax.set_xlim(260,330)
-        ax.set_ylim(0,300)
-        ax.scatter(AWS14_LW_srs, LWP14_srs, color='#f68080',s=50)
+        #ax.set_xlim(0,800)
+        #ax.set_ylim(0,300)
+        ax.scatter(box_SW_srs, box_LWP_srs*1000, color='#f68080',s=50)
 #        ax.set_ylim(np.min(np.mean(runMP['LWP'][:,:, 133:207, 188:213].data, axis=0)),
 #                          np.max(np.mean(runMP['LWP'][:,:, 133:207, 188:213].data, axis=(0))))
 #        ax.set_xlim(np.min(np.mean(runSEB['LW_down'][:,:, 133:207, 188:213].data, axis=(0))),
 #                          np.max(np.mean(runSEB['LW_down'][:,:, 133:207, 188:213].data, axis=(0))))
-        slope, intercept, r2, p, sterr = scipy.stats.linregress(AWS14_LW_srs, LWP14_srs)
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(box_SW_srs, box_LWP_srs)
         if p <= 0.01:
             ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top', s='r$^{2}$ = %s' % np.round(r2, decimals=2),
                           fontweight='bold', transform=ax.transAxes, size=24,color='dimgrey')
@@ -890,7 +909,7 @@ def correl_SEB_sgl(runSEB, runMP, phase):
     elif phase == 'ice':
         # SW vs IWP
         ax.set_xlim(290,600)
-        slope, intercept, r2, p, sterr = scipy.stats.linregress(AWS14_SW_srs, IWP14_srs)
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(box_SW_srs, box_IWP_srs)
         if p <= 0.01:
             ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
                               s='r$^{2}$ = %s' % np.round(r2, decimals=2), fontweight='bold',
@@ -898,7 +917,7 @@ def correl_SEB_sgl(runSEB, runMP, phase):
         else:
             ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top', s='r$^{2}$ = %s' % np.round(r2, decimals=2),
                               transform=ax.transAxes, size=24,color='dimgrey')
-        ax.scatter(AWS14_SW_srs, IWP14_srs, color='#f68080', s=50)
+        ax.scatter(box_SW_srs, box_IWP_srs*1000, color='#f68080', s=50)
         #ax.set_ylim(np.min(np.mean(runMP['IWP'][:,:, 133:207, 188:213].data, axis=0)),
         #                  np.max(np.mean(runMP['IWP'][:,:, 133:207, 188:213].data, axis=(0))))
         #ax.set_xlim(np.min(np.mean(runSEB['SW_down'][:,:, 133:207, 188:213].data, axis=(0))),
@@ -918,18 +937,44 @@ def correl_SEB_sgl(runSEB, runMP, phase):
     [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
     #[l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
     plt.subplots_adjust(top=0.98, hspace=0.15, bottom=0.1, wspace=0.15, left=0.3, right=0.75)
-    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/Jan_SEB_v_mp'+phase+'.png', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/Jan_SEB_v_mp'+phase+'.eps', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/Jan_SEB_v_mp'+phase+'.pdf', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_SEB_v_'+phase+'.png', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_SEB_v_'+phase+'.eps', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_SEB_v_'+phase+'.pdf', transparent=True)
     plt.show()
 
+correl_SEB_sgl(Jan_SEB, Jan_mp, phase = 'liquid')
+
+## Caption: Box plots showing the modelled variation in ice and liquid water paths over the OFCAP period across the entire
+## Larsen ice shelf, and at AWSs 14 and 15. Median values are indicated by the pink line in the centre of each box, while
+## the green diamonds show the model mean. The whiskers extend to the 5th and 95th percentiles of the data, and outlying
+## points are shown with grey crosses.
+
+def boxplot():
+    fig, ax = plt.subplots(1,1, figsize = (13,8))
+    ax.set_ylim(-10,1000)
+    ax.boxplot([box_IWP_srs*1000, box_LWP_srs*1000, IWP14_srs*1000, IWP15_srs*1000, LWP15_srs*1000], whis = [5,95], showmeans = True,
+               whiskerprops= dict(linestyle='--', color = '#222222', linewidth = 1.5),
+               capprops = dict(color = '#222222', linewidth = 1.5, zorder = 11),
+               medianprops = dict(color = '#f68080', linewidth = 2.5, zorder = 6),
+               meanprops = dict(marker = 'D', markeredgecolor = '#222222', markerfacecolor = '#33a02c', markersize = 10, zorder = 10),
+               flierprops = dict(marker = 'x', markeredgecolor = 'dimgrey', zorder = 2, markersize = 10),
+               boxprops = dict(linewidth = 1.5, color = '#222222', zorder = 8))# insert LWP at AWS 14 once I have got it!
+    ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+    ax.set_yticks([ 0,250,500,750,1000])
+    ax.set_xticklabels(['Ice shelf \nmean IWP', 'Ice shelf \nmean LWP','AWS14 \nmean IWP','AWS 15 \nmean IWP','AWS 15 \nmean LWP',])
+    ax.set_ylabel('Water path \n(g m$^{-2}$)', color = 'dimgrey', fontsize = 24, rotation = 0, labelpad = 50)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
+    plt.subplots_adjust(bottom = 0.2, top = 0.95, right = 0.99, left = 0.2)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_mp_boxplot.png', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_mp_boxplot.pdf', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_mp_boxplot.eps', transparent=True)
+    plt.show()
+
+boxplot()
 
 
-correl_SEB_sgl(Jan_SEB, Jan_mp, phase = 'ice')
-
-
-def box_plot():
-    
 #IWP_time_srs(),
 #QCF_plot(), QCL_plot()
 
