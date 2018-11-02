@@ -207,7 +207,7 @@ def load_mp(config, vars):
 # 'min_QCL': min_QCL, 'real_lon': real_lon, 'real_lat':real_lat,'box_mean_IWP': box_mean_IWP, 'box_mean_LWP': box_mean_LWP,'AWS14_mean_LWP': AWS14_mean_LWP,
 
 def load_SEB(config, vars):
-    ''' Import surface energy balance quantities from an OFCAP model run.
+    ''' Import surface energy balance quantities at AWS 14 from an OFCAP model run.
 
     Inputs:
         - config = model configuration used
@@ -227,40 +227,40 @@ def load_SEB(config, vars):
     os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/')
     print('\n Downwelling longwave')
     try:
-        LW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_longwave_flux',grid_longitude=lambda cell: 178.5 < cell < 180.6, grid_latitude=lambda cell: -2.5 < cell < 0.9,
+        LW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_longwave_flux',grid_longitude=180, grid_latitude=0,
                                                      forecast_period=lambda cell: cell >= 12.5))
     except iris.exceptions.ConstraintMismatchError:
         print('\n Downwelling LW not in this file')
     print('\nDownwelling shortwave')
     try:
         SW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_shortwave_flux_in_air',
-                                                           grid_longitude=lambda cell: 178.5 < cell < 180.6,
-                                                           grid_latitude=lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))
+                                                           grid_longitude=180,
+                                                           grid_latitude=0, forecast_period=lambda cell: cell >= 12.5))
     except iris.exceptions.ConstraintMismatchError:
         print('\n Downwelling SW not in this file')
     if vars == 'SEB':
         print('\nUpwelling shortwave')
         try:
             SW_up = iris.load_cube(pf, iris.Constraint(name='upwelling_shortwave_flux_in_air',
-                                                         grid_longitude=lambda cell: 178.5 < cell < 180.6,
-                                                         grid_latitude=lambda cell: -2.5 < cell < 0.9,
+                                                         grid_longitude=180,
+                                                         grid_latitude=0,
                                                        model_level_number = 0, forecast_period=lambda cell: cell >= 12.5))
         except iris.exceptions.ConstraintMismatchError:
             print('\n Upwelling SW not in this file')
         print('\nUpwelling longwave')
         try:
             LW_up = iris.load_cube(pf, iris.Constraint(name='upwelling_longwave_flux_in_air',
-                                                       grid_longitude=lambda cell: 178.5 < cell < 180.6,
-                                                       grid_latitude=lambda cell: -2.5 < cell < 0.9,
-                                                       model_level_number=0,
+                                                       grid_longitude=180,
+                                                       grid_latitude=0,
+                                                       model_level_number=1,
                                                        forecast_period=lambda cell: cell >= 12.5))
         except iris.exceptions.ConstraintMismatchError:
-            print('\n Upwelling LW not in this file')
+             print('\n Upwelling LW not in this file')
         print('\nSensible heat')
         try:
             SH = iris.load_cube(pf, iris.Constraint(name='surface_upward_sensible_heat_flux',
-                                                       grid_longitude=lambda cell: 178.5 < cell < 180.6,
-                                                       grid_latitude=lambda cell: -2.5 < cell < 0.9,
+                                                       grid_longitude=180,
+                                                       grid_latitude=0,
                                                        forecast_period=lambda cell: cell >= 12.5))
             SH = 0 - SH.data
         except iris.exceptions.ConstraintMismatchError:
@@ -268,8 +268,8 @@ def load_SEB(config, vars):
         print('\nLatent heat')
         try:
             LH = iris.load_cube(pf, iris.Constraint(name='surface_upward_latent_heat_flux',
-                                                       grid_longitude=lambda cell: 178.5 < cell < 180.6,
-                                                       grid_latitude=lambda cell: -2.5 < cell < 0.9,
+                                                       grid_longitude=180,
+                                                       grid_latitude=0,
                                                        forecast_period=lambda cell: cell >= 12.5))
             LH = 0 - LH.data
         except iris.exceptions.ConstraintMismatchError:
@@ -277,8 +277,8 @@ def load_SEB(config, vars):
         print('\nSurface temperature')
         try:
             Ts = iris.load_cube(pa, iris.Constraint(name='surface_temperature',
-                                                    grid_longitude=lambda cell: 178.5 < cell < 180.6,
-                                                    grid_latitude=lambda cell: -2.5 < cell < 0.9,
+                                                    grid_longitude=180,
+                                                    grid_latitude=0,
                                                     forecast_period=lambda cell: cell >= 12.5))
             Ts.convert_units('celsius')
         except iris.exceptions.ConstraintMismatchError:
