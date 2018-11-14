@@ -222,29 +222,50 @@ def load_SEB(config, vars):
     for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/'):
         if fnmatch.fnmatch(file,  '*%(config)s_pf*' % locals()):
             pf.append(file)
-        elif fnmatch.fnmatch(file,  '*%(config)s_pa*' % locals()):
+    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
+    for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/'):
+        if fnmatch.fnmatch(file,  '*%(config)s_pa*' % locals()):
             pa.append(file)
     os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/')
-    print('\n Downwelling longwave')
-    try:
-        LW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_longwave_flux',grid_longitude=180, grid_latitude=0,
-                                                     forecast_period=lambda cell: cell >= 12.5))
-    except iris.exceptions.ConstraintMismatchError:
-        print('\n Downwelling LW not in this file')
-    print('\nDownwelling shortwave')
-    try:
-        SW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_shortwave_flux_in_air',
-                                                           grid_longitude=180,
-                                                           grid_latitude=0, forecast_period=lambda cell: cell >= 12.5))
-    except iris.exceptions.ConstraintMismatchError:
-        print('\n Downwelling SW not in this file')
-    if vars == 'SEB':
+    if vars == 'downwelling':
+        print('\n Downwelling longwave')
+        try:
+            LW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_longwave_flux',
+                                                         grid_longitude = lambda cell: 178.5 < cell < 180.6,
+                                                         grid_latitude = lambda cell: -2.5 < cell < 0.9,
+                                                         forecast_period=lambda cell: cell >= 12.5))
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n Downwelling LW not in this file')
+        print('\nDownwelling shortwave')
+        try:
+            SW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_shortwave_flux_in_air',
+                                                         grid_longitude=lambda cell: 178.5 < cell < 180.6,
+                                                         grid_latitude=lambda cell: -2.5 < cell < 0.9,
+                                                         forecast_period=lambda cell: cell >= 12.5))
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n Downwelling SW not in this file')
+        var_dict = {'LW_down': LW_down, 'SW_down': SW_down}
+    elif vars == 'SEB':
+        print('\n Downwelling longwave')
+        try:
+            LW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_longwave_flux', grid_longitude=180,
+                                                         grid_latitude=0,
+                                                         forecast_period=lambda cell: cell >= 12.5))
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n Downwelling LW not in this file')
+        print('\nDownwelling shortwave')
+        try:
+            SW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_shortwave_flux_in_air',
+                                                         grid_longitude=180,
+                                                         grid_latitude=0, forecast_period=lambda cell: cell >= 12.5))
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n Downwelling SW not in this file')
         print('\nUpwelling shortwave')
         try:
             SW_up = iris.load_cube(pf, iris.Constraint(name='upwelling_shortwave_flux_in_air',
                                                          grid_longitude=180,
                                                          grid_latitude=0,
-                                                       model_level_number = 0, forecast_period=lambda cell: cell >= 12.5))
+                                                       model_level_number = 1, forecast_period=lambda cell: cell >= 12.5))
         except iris.exceptions.ConstraintMismatchError:
             print('\n Upwelling SW not in this file')
         print('\nUpwelling longwave')
@@ -274,18 +295,17 @@ def load_SEB(config, vars):
             LH = 0 - LH.data
         except iris.exceptions.ConstraintMismatchError:
             print('\n LH not in this file')
+        os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
         print('\nSurface temperature')
         try:
             Ts = iris.load_cube(pa, iris.Constraint(name='surface_temperature',
                                                     grid_longitude=180,
                                                     grid_latitude=0,
                                                     forecast_period=lambda cell: cell >= 12.5))
-            Ts.convert_units('celsius')
+            # Ts.convert_units('celsius')
         except iris.exceptions.ConstraintMismatchError:
             print('\n Ts not in this file')
         var_dict = {'SW_up': SW_up, 'SW_down': SW_down, 'LH': LH, 'SH': SH, 'LW_up': LW_up, 'LW_down': LW_down,  'Ts': Ts}
-    elif vars == 'downwelling':
-        var_dict = {'LW_down': LW_down, 'SW_down': SW_down}
     return var_dict
 
 def load_met(var):
@@ -387,10 +407,9 @@ def load_met(var):
     '\nDone, in {:01d} secs'.format(int(end - start))
     return var_dict
 
-#Jan_mp, constr_lsm, constr_orog = load_mp('lg_t', vars = 'water paths')
 Jan_SEB = load_SEB(config = 'lg_t', vars = 'SEB')
+#Jan_mp = load_mp(config = 'lg_t', vars = 'water paths')
 #Jan_met = load_met('lg_t')
-
 
 def load_AWS(station, period):
     ## --------------------------------------------- SET UP VARIABLES ------------------------------------------------##
@@ -429,7 +448,7 @@ def print_stats():
         means = model_mean.mean(axis=0)
         print means
 
-print_stats()
+#print_stats()
 
 
 def construct_srs(var_name):
@@ -444,29 +463,43 @@ def construct_srs(var_name):
 
 os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test')
 
-IWP14_srs = construct_srs(Jan_mp['AWS14_mean_IWP'])
-LWP14_srs = construct_srs(Jan_mp['AWS14_mean_LWP'])
-IWP15_srs = construct_srs(Jan_mp['AWS15_mean_IWP'])
-LWP15_srs = construct_srs(Jan_mp['AWS15_mean_LWP'])
-box_IWP_srs = construct_srs(Jan_mp['mean_IWP'])
-box_LWP_srs = construct_srs(Jan_mp['mean_LWP'])
-AWS14_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'][:,:,165:167, 98:100].data, axis = (2,3)))
-AWS14_LW_srs = construct_srs(np.mean(Jan_SEB['LW_down'][:,:,165:167, 98:100].data, axis = (2,3)))
-AWS15_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'][:,:,127:129, 81:83].data, axis = (2,3)))
-AWS15_LW_srs = construct_srs(np.mean(Jan_SEB['LW_down'][:,:,127:129, 81:83].data, axis = (2,3)))
-box_LW_srs = construct_srs(np.mean(Jan_SEB['LW_down'].data, axis = (2,3)))
-box_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'].data, axis = (2,3)))
+#IWP14_srs = construct_srs(Jan_mp['AWS14_mean_IWP'])
+#LWP14_srs = construct_srs(Jan_mp['AWS14_mean_LWP'])
+#IWP15_srs = construct_srs(Jan_mp['AWS15_mean_IWP'])
+#LWP15_srs = construct_srs(Jan_mp['AWS15_mean_LWP'])
+#box_IWP_srs = construct_srs(Jan_mp['mean_IWP'])
+#box_LWP_srs = construct_srs(Jan_mp['mean_LWP'])
+#AWS14_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'][:,:,165:167, 98:100].data, axis = (2,3)))
+#AWS14_LW_srs = construct_srs(np.mean(Jan_SEB['LW_down'][:,:,165:167, 98:100].data, axis = (2,3)))
+#AWS15_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'][:,:,127:129, 81:83].data, axis = (2,3)))
+#AWS15_LW_srs = construct_srs(np.mean(Jan_SEB['LW_down'][:,:,127:129, 81:83].data, axis = (2,3)))
+#box_LW_srs = construct_srs(np.mean(Jan_SEB['LW_down'].data, axis = (2,3)))
+#box_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'].data, axis = (2,3)))
 Jan_SEB['SW_down'].coord('time').convert_units('seconds since 1970-01-01 00:00:00')
+#Jan_mp['mean_LWP'].coord('time').convert_units('seconds since 1970-01-01 00:00:00')
 Time_srs = construct_srs(np.swapaxes(Jan_SEB['SW_down'].coord('time').points,0,1))
 Time_srs = matplotlib.dates.num2date(matplotlib.dates.epoch2num(Time_srs))
 
 AWS14_SEB_Jan[AWS14_SEB_Jan['LWin'] < -200] = np.nan
 AWS15_Jan[AWS15_Jan['Lin'] < -200] = np.nan
 
-AWS15_dif_SW = AWS15_SW_srs - AWS15_Jan['Sin'][12:]
-AWS15_dif_LW = AWS15_LW_srs - AWS15_Jan['Lin'][12:]
-AWS14_dif_SW = AWS14_SW_srs - AWS14_SEB_Jan['SWin_corr'][24::2]
-AWS14_dif_LW = AWS14_LW_srs - AWS14_SEB_Jan['LWin'][24::2]
+#AWS15_dif_SW = AWS15_SW_srs - AWS15_Jan['Sin'][12:]
+#AWS15_dif_LW = AWS15_LW_srs - AWS15_Jan['Lin'][12:]
+#AWS14_dif_SW = AWS14_SW_srs - AWS14_SEB_Jan['SWin_corr'][24::2]
+#AWS14_dif_LW = AWS14_LW_srs - AWS14_SEB_Jan['LWin'][24::2]
+
+# Create time series of SEB parameters
+SW_down_srs = construct_srs(Jan_SEB['SW_down'].data)
+SW_up_srs = construct_srs(Jan_SEB['SW_up'].data)
+LW_down_srs = construct_srs(Jan_SEB['LW_down'].data)
+LW_up_srs = construct_srs(Jan_SEB['LW_up'].data)
+SH_srs = construct_srs(Jan_SEB['SH'])
+LH_srs = construct_srs(Jan_SEB['LH'])
+Ts_srs = construct_srs(Jan_SEB['Ts'].data)
+E_srs = (SW_down_srs - SW_up_srs) + (LW_down_srs - LW_up_srs) + LH_srs + SH_srs
+melt_srs = np.ma.masked_where(Ts_srs < -0.025, E_srs)
+melt_srs[Ts_srs < -0.025 & E_srs > 0] = 0
+print('melt mean = ' + np.mean(melt_srs))
 
 ## ================================================= PLOTTING ======================================================= ##
 
@@ -749,7 +782,7 @@ def IWP_time_srs():
     plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vn11_water_path_time_srs_OFCAP.eps')
     plt.show()
 
-IWP_time_srs()
+#IWP_time_srs()
 
 def rad_time_srs():
     model_runs = [Jan_SEB]
@@ -942,17 +975,35 @@ def correl_SEB_sgl(runSEB, runMP, phase):
     plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_SEB_v_'+phase+'.pdf', transparent=True)
     plt.show()
 
-correl_SEB_sgl(Jan_SEB, Jan_mp, phase = 'liquid')
+#correl_SEB_sgl(Jan_SEB, Jan_mp, phase = 'liquid')
 
 ## Caption: Box plots showing the modelled variation in ice and liquid water paths over the OFCAP period across the entire
 ## Larsen ice shelf, and at AWSs 14 and 15. Median values are indicated by the pink line in the centre of each box, while
 ## the green diamonds show the model mean. The whiskers extend to the 5th and 95th percentiles of the data, and outlying
 ## points are shown with grey crosses.
 
-def boxplot():
-    fig, ax = plt.subplots(1,1, figsize = (13,8))
-    ax.set_ylim(-10,1000)
-    ax.boxplot([box_IWP_srs*1000, box_LWP_srs*1000, IWP14_srs*1000, IWP15_srs*1000, LWP15_srs*1000], whis = [5,95], showmeans = True,
+def boxplot(data):
+    fig, ax = plt.subplots(1,1, figsize = (18,8))
+    #ax.set_ylim(-10,1000)
+    import matplotlib.cbook as cbook
+    if data == 'SEB':
+        model_data = [SW_down_srs, SW_up_srs, LW_down_srs, LW_up_srs, SH_srs, LH_srs, E_srs, melt_srs]
+        obs_data = [AWS14_SEB_Jan['SWin_corr'], (0 - AWS14_SEB_Jan['SWout']), AWS14_SEB_Jan['LWin'],
+                    (0 - AWS14_SEB_Jan['LWout_corr']), AWS14_SEB_Jan['Hsen'], AWS14_SEB_Jan['Hlat'], E_tot,
+                    AWS14_SEB_Jan['melt_energy']]
+        labels = ['SW$_{down}$', 'SW$_{up}$', 'LW$_{down}$', 'LW$_{up}$', 'H$_S$', 'H$_L$', 'E$_{tot}$', 'E$_{melt}$']
+        stats = cbook.boxplot_stats(model_data, labels=labels)
+        # change means in model_data table to be means of observations
+        for n in range(len(stats)):
+            stats[n]['mean'] = np.mean(obs_data[n])
+        text_str = 'SEB'
+    elif data == 'mp':
+        model_data = [box_IWP_srs, box_LWP_srs, IWP14_srs, LWP14_srs, IWP15_srs, LWP15_srs]
+        labels = ['ice shelf\n mean IWP', 'ice shelf \nmean LWP', 'AWS14\n IWP', 'AWS14\n LWP', 'AWS15\n IWP', 'AWS14\n LWP']
+        stats = cbook.boxplot_stats(model_data, labels=labels)
+        text_str = 'mp'
+    ax.boxplot(model_data,
+               whis = [5,95], showmeans = True,
                whiskerprops= dict(linestyle='--', color = '#222222', linewidth = 1.5),
                capprops = dict(color = '#222222', linewidth = 1.5, zorder = 11),
                medianprops = dict(color = '#f68080', linewidth = 2.5, zorder = 6),
@@ -960,23 +1011,55 @@ def boxplot():
                flierprops = dict(marker = 'x', markeredgecolor = 'dimgrey', zorder = 2, markersize = 10),
                boxprops = dict(linewidth = 1.5, color = '#222222', zorder = 8))# insert LWP at AWS 14 once I have got it!
     ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-    ax.set_yticks([ 0,250,500,750,1000])
-    ax.set_xticklabels(['Ice shelf \nmean IWP', 'Ice shelf \nmean LWP','AWS14 \nmean IWP','AWS 15 \nmean IWP','AWS 15 \nmean LWP',])
+    #ax.set_yticks([ 0,250,500,750,1000])
+    ax.set_xticklabels(['SW$_{down}$', 'SW$_{up}$','LW$_{down}$','LW$_{up}$','H$_S$', 'H$_L$', 'E$_{tot}$', 'E$_{melt}$'])
     ax.set_ylabel('Water path \n(g m$^{-2}$)', color = 'dimgrey', fontsize = 24, rotation = 0, labelpad = 50)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
     plt.subplots_adjust(bottom = 0.2, top = 0.95, right = 0.99, left = 0.2)
-    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_mp_boxplot.png', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_mp_boxplot.pdf', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_mp_boxplot.eps', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_'+text_str+'_boxplot.png', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_'+text_str+'_boxplot.pdf', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_'+text_str+'_boxplot.eps', transparent=True)
     plt.show()
 
-boxplot()
+#boxplot()
 
+'''
+E_tot = (AWS14_SEB_Jan['SWin_corr'] - AWS14_SEB_Jan['SWout']) + (AWS14_SEB_Jan['LWin'] - AWS14_SEB_Jan['LWout_corr']) + AWS14_SEB_Jan['Hlat']+ AWS14_SEB_Jan['Hsen'] - AWS14_SEB_Jan['Gs']
+
+
+# https://matplotlib.org/gallery/statistics/bxp.html
+
+fig, ax = plt.subplots(1, 1, figsize=(18, 8))
+ax.set_ylim(-800,950)
+ax.boxplot([AWS14_SEB_Jan['SWin_corr'], (0-AWS14_SEB_Jan['SWout']),AWS14_SEB_Jan['LWin'],  (0-AWS14_SEB_Jan['LWout_corr']),  AWS14_SEB_Jan['Hsen'],  AWS14_SEB_Jan['Hlat'], E_tot,  AWS14_SEB_Jan['melt_energy']],
+           whis=[5, 95], showmeans=True,
+           whiskerprops=dict(linestyle='--', color='#222222', linewidth=1.5),
+           capprops=dict(color='#222222', linewidth=1.5, zorder=10),
+           medianprops=dict(color='#f68080', linewidth=2.5, zorder=6),
+           meanprops=dict(marker='D', markeredgecolor='#222222', markerfacecolor='#33a02c', markersize=10, zorder=11),
+           flierprops=dict(marker='x', markeredgecolor='dimgrey', zorder=2, markersize=10),
+           boxprops=dict(linewidth=1.5, color='#222222', zorder=8))  # insert LWP at AWS 14 once I have got it!
+ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+ax.set_yticks([ -800, -400, 0, 400, 800])
+ax.axhline(y=0, linewidth = 1.5, linestyle = '--', color = 'dimgrey')
+ax.set_xticklabels(
+    ['SW$_{down}$', 'SW$_{up}$','LW$_{down}$', 'LW$_{up}$', 'H$_S$', 'H$_L$', 'E$_{tot}$', 'E$_{melt}$']) #
+ax.set_ylabel('Energy flux \n(W m$^{-2}$)', color='dimgrey', fontsize=24, rotation=0, labelpad=60)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
+plt.subplots_adjust(bottom=0.2, top=0.95, right=0.99, left=0.2)
+plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_SEB_boxplot_AWS.png', transparent=True)
+plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_SEB_boxplot_AWS.pdf', transparent=True)
+plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_SEB_boxplot_AWS.eps', transparent=True)
+plt.show()
 
 #IWP_time_srs(),
 #QCF_plot(), QCL_plot()
 
 #T_plot()
+
+'''
 
