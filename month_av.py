@@ -312,10 +312,10 @@ def load_met(var):
     start = time.time()
     pa = []
     print('\nimporting data from %(var)s...' % locals())
-    for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/'):
+    for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/'):
         if fnmatch.fnmatch(file, '*%(var)s*_pa*' % locals()):
             pa.append(file)
-    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
+    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/')
     print('\nAir temperature')
     # Load only last 12 hours of forecast (i.e. t+12 to t+24, discarding preceding 12 hours as spin-up) for bottom 40 levels, and perform unit conversion from K to *C
     T_air = iris.load_cube(pa, iris.Constraint(name='air_temperature', model_level_number=lambda cell: cell <= 40, forecast_period=lambda cell: cell >= 12.5,
@@ -408,7 +408,7 @@ def load_met(var):
     return var_dict
 
 Jan_SEB = load_SEB(config = 'lg_t', vars = 'SEB')
-#Jan_mp = load_mp(config = 'lg_t', vars = 'water paths')
+#Jan_mp, constr_lsm, constr_orog = load_mp(config = 'lg_t', vars = 'water paths')
 #Jan_met = load_met('lg_t')
 
 def load_AWS(station, period):
@@ -463,12 +463,12 @@ def construct_srs(var_name):
 
 os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test')
 
-#IWP14_srs = construct_srs(Jan_mp['AWS14_mean_IWP'])
-#LWP14_srs = construct_srs(Jan_mp['AWS14_mean_LWP'])
-#IWP15_srs = construct_srs(Jan_mp['AWS15_mean_IWP'])
-#LWP15_srs = construct_srs(Jan_mp['AWS15_mean_LWP'])
-#box_IWP_srs = construct_srs(Jan_mp['mean_IWP'])
-#box_LWP_srs = construct_srs(Jan_mp['mean_LWP'])
+IWP14_srs = construct_srs(Jan_mp['AWS14_mean_IWP'])
+LWP14_srs = construct_srs(Jan_mp['AWS14_mean_LWP'])
+IWP15_srs = construct_srs(Jan_mp['AWS15_mean_IWP'])
+LWP15_srs = construct_srs(Jan_mp['AWS15_mean_LWP'])
+box_IWP_srs = construct_srs(Jan_mp['mean_IWP'])
+box_LWP_srs = construct_srs(Jan_mp['mean_LWP'])
 #AWS14_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'][:,:,165:167, 98:100].data, axis = (2,3)))
 #AWS14_LW_srs = construct_srs(np.mean(Jan_SEB['LW_down'][:,:,165:167, 98:100].data, axis = (2,3)))
 #AWS15_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'][:,:,127:129, 81:83].data, axis = (2,3)))
@@ -496,7 +496,7 @@ LW_up_srs = construct_srs(Jan_SEB['LW_up'].data)
 SH_srs = construct_srs(Jan_SEB['SH'])
 LH_srs = construct_srs(Jan_SEB['LH'])
 Ts_srs = construct_srs(Jan_SEB['Ts'].data)
-E_srs = (SW_down_srs - SW_up_srs) + (LW_down_srs - LW_up_srs) + LH_srs + SH_srs
+E_srs = (SW_down_srs - SW_up_srs) + (LW_down_srs - LW_up_srs) + LH_srs[:732] + SH_srs[:732]
 melt_srs = np.ma.masked_where(Ts_srs < -0.025, E_srs)
 melt_srs[Ts_srs < -0.025 & E_srs > 0] = 0
 print('melt mean = ' + np.mean(melt_srs))
@@ -997,11 +997,13 @@ def boxplot(data):
         for n in range(len(stats)):
             stats[n]['mean'] = np.mean(obs_data[n])
         text_str = 'SEB'
+        #ax.set_xticklabels(['SW$_{down}$', 'SW$_{up}$','LW$_{down}$','LW$_{up}$','H$_S$', 'H$_L$', 'E$_{tot}$', 'E$_{melt}$'])
     elif data == 'mp':
-        model_data = [box_IWP_srs, box_LWP_srs, IWP14_srs, LWP14_srs, IWP15_srs, LWP15_srs]
-        labels = ['ice shelf\n mean IWP', 'ice shelf \nmean LWP', 'AWS14\n IWP', 'AWS14\n LWP', 'AWS15\n IWP', 'AWS14\n LWP']
+        model_data = [box_IWP_srs*1000, box_LWP_srs*1000, IWP14_srs*1000, LWP14_srs*1000, IWP15_srs*1000, LWP15_srs*1000]
+        labels = ['Ice shelf\n mean IWP', 'Ice shelf \nmean LWP', 'AWS14\n IWP', 'AWS14\n LWP', 'AWS15\n IWP', 'AWS14\n LWP']
         stats = cbook.boxplot_stats(model_data, labels=labels)
         text_str = 'mp'
+        #['ice shelf\n mean IWP', 'ice shelf \nmean LWP', 'AWS14\n IWP', 'AWS14\n LWP', 'AWS15\n IWP', 'AWS14\n LWP'])
     ax.boxplot(model_data,
                whis = [5,95], showmeans = True,
                whiskerprops= dict(linestyle='--', color = '#222222', linewidth = 1.5),
@@ -1012,8 +1014,8 @@ def boxplot(data):
                boxprops = dict(linewidth = 1.5, color = '#222222', zorder = 8))# insert LWP at AWS 14 once I have got it!
     ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
     #ax.set_yticks([ 0,250,500,750,1000])
-    ax.set_xticklabels(['SW$_{down}$', 'SW$_{up}$','LW$_{down}$','LW$_{up}$','H$_S$', 'H$_L$', 'E$_{tot}$', 'E$_{melt}$'])
-    ax.set_ylabel('Water path \n(g m$^{-2}$)', color = 'dimgrey', fontsize = 24, rotation = 0, labelpad = 50)
+    ax.set_xticklabels(labels)
+    ax.set_ylabel('Water path \n(g m$^{-2}$)', color = 'dimgrey', fontsize = 24, rotation = 0, labelpad =  100)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
@@ -1023,7 +1025,8 @@ def boxplot(data):
     plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_'+text_str+'_boxplot.eps', transparent=True)
     plt.show()
 
-#boxplot()
+boxplot(data = 'SEB')
+
 
 '''
 E_tot = (AWS14_SEB_Jan['SWin_corr'] - AWS14_SEB_Jan['SWout']) + (AWS14_SEB_Jan['LWin'] - AWS14_SEB_Jan['LWout_corr']) + AWS14_SEB_Jan['Hlat']+ AWS14_SEB_Jan['Hsen'] - AWS14_SEB_Jan['Gs']

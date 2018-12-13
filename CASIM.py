@@ -133,7 +133,7 @@ def load_SEB(config, flight_date):
     LW_down = iris.load_cube(pf, 'surface_downwelling_longwave_flux')
     LW_up = iris.load_cube(pf, 'upwelling_longwave_flux_in_air')
     SW_up = iris.load_cube(pf, 'upwelling_shortwave_flux_in_air')
-    if config == 'CASIM_24':
+    if config == 'CASIM_24' or config == 'DeMott':
         c = iris.load(pf)
         SW_net = c[0]
     else:
@@ -152,7 +152,7 @@ def load_SEB(config, flight_date):
         i.coord('time').convert_units('hours since 2011-01-18 00:00')
     LH = 0 - LH.data
     SH = 0 - SH.data
-    if config =='CASIM_24':
+    if config =='CASIM_24' or config == 'DeMott':
         var_dict = {'real_lon': real_lon, 'real_lat': real_lat, 'SW_up': SW_up, 'SW_down': SW_down,
                     'LH': LH, 'SH': SH, 'LW_up': LW_up, 'LW_down': LW_down, 'LW_net': LW_net, 'SW_net': SW_net}
     else:
@@ -160,46 +160,9 @@ def load_SEB(config, flight_date):
                     'LH': LH, 'SH': SH, 'LW_up': LW_up, 'LW_down': LW_down, 'LW_net': LW_net, 'SW_net': SW_net, 'Ts': Ts}
     return var_dict
 
-# Load models in for times of interest: (59, 68) for time of flight, (47, 95) for midday-midnight (discard first 12 hours as spin-up)
-#HM_vars = load_model('Hallett_Mossop', (11,21))
-RA1M_mod_vars = load_model(config = 'RA1M_mod_24', flight_date = '20110118T0000', times = (47,95))
-RA1T_mod_vars = load_model(config ='RA1T_mod_24', flight_date = '20110118T0000', times = (47,95))
-RA1T_vars = load_model(config ='RA1T_24', flight_date = '20110118T0000', times = (47,95))
-RA1M_vars = load_model(config ='RA1M_24', flight_date = '20110118T0000', times = (47,95))
-CASIM_vars = load_model(config ='CASIM_24', flight_date = '20110118T0000', times = (47,95))
-DeMott_vars = load_model(config ='DeMott', flight_date = '20110118T0000', times = (47,95))
-#fl_av_vars = load_model(config ='fl_av', flight_date = '20110118T0000', times = (47,95))
-model_runs = [RA1M_vars, RA1M_mod_vars,RA1T_vars, RA1T_mod_vars, CASIM_vars,  DeMott_vars]#fl_av_vars,
-
-#t24_vars = load_model('24', (59,68))
-
-
-def print_stats():
-    model_mean = pd.DataFrame()
-    for run in model_runs:
-        #print('\n\nMean cloud box QCL of %(run)s is: '% locals()+str(np.mean(run['mean_QCL'])) )
-        #print('\n\nMean cloud box QCF of %(run)s is: '% locals()+str(np.mean(run['mean_QCF'])) )
-        #print('\n\nMean QCL at AWS 14 and 15 is ' + str(np.mean(run['AWS14_mean_QCL']))+ ' and ' + str(np.mean(run['AWS15_mean_QCL'])) + ', respectively in %(run)s' % locals())
-        #print ('\n\nMean QCF at AWS 14 and 15 is '+str(np.mean(run['AWS14_mean_QCF']))+' and '+str( np.mean(run['AWS15_mean_QCF']))+', respectively in %(run)s \n\n' % locals())
-        #print('\n\nMean cloud box LWP of %(run)s is: ' % locals() + str(run['box_mean_LWP']))
-        #print('\n\nMean cloud box IWP of %(run)s is: ' % locals() + str(run['box_mean_IWP']))
-        #print('\n\nMean LWP at AWS 14 and 15 is ' + str(run['AWS14_mean_LWP']) + ' and ' + str(run['AWS15_mean_LWP']) + ', respectively in %(run)s' % locals())
-        #print('\n\nMean IWP at AWS 14 and 15 is ' + str(run['AWS14_mean_IWP']) + ' and ' + str(run['AWS15_mean_IWP']) + ', respectively in %(run)s \n\n' % locals())
-        m = pd.DataFrame({'mean QCL': np.mean(run['mean_QCL']), 'std QCL profile': np.std(run['mean_QCL']), 'mean_QCF': np.mean(run['mean_QCF']), 'std QCF profile': np.std(run['mean_QCF']),
-                          'AWS 14 QCL': np.mean(run['AWS14_mean_QCL']), 'std AWS 14 QCL profile': np.std(run['AWS14_mean_QCL']),'AWS 14 QCF' : np.mean(run['AWS14_mean_QCF']), 'std AWS 14 QCF profile': np.std(run['AWS14_mean_QCF']),
-                          'AWS 15 QCL': np.mean(run['AWS15_mean_QCL']), 'std AWS 15 QCL profile': np.std(run['AWS15_mean_QCL']), 'AWS 15 QCF' : np.mean(run['AWS15_mean_QCF']), 'std AWS 15 QCF profile': np.std(run['AWS15_mean_QCF']),
-                          'mean LWP': np.mean(run['LWP'][:,133:207, 188:213].data), 'std box LWP': np.std(np.mean(run['LWP'][:,133:207, 188:213].data, axis = (1,2))),'mean IWP': np.mean(run['IWP'][:,133:207, 188:213].data),
-                          'std box IWP': np.std(np.mean(run['IWP'][:,133:207, 188:213].data, axis = (1,2))),'AWS 14 LWP': np.mean(run['LWP'][:,199:201, 199:201].data),  'std AWS 14 LWP': np.std(np.mean(run['LWP'][:,199:201, 199:201].data, axis = (1,2))),
-                          'AWS 14 IWP': np.mean(run['IWP'][:,199:201, 199:201].data),'std AWS 14 IWP': np.std(np.mean(run['IWP'][:,199:201, 199:201].data, axis = (1,2))), 'AWS 15 LWP': np.mean(run['LWP'][:, 161:163, 182:184].data),
-                          'std AWS 15 LWP': np.std(np.mean(run['LWP'][:,161:163, 182:184].data, axis = (1,2))), 'AWS 15 IWP': np.mean(run['IWP'][:, 161:163, 182:184].data),'std AWS 15 IWP': np.std(np.mean(run['IWP'][:, 161:163, 182:184].data, axis = (1,2)))}, index = [0])
-        model_mean = pd.concat([model_mean, m])
-        means = model_mean.mean(axis=0)
-        print means
-
-#print_stats()
 
 def load_obs(flight, flight_date):
-    ''' Inputs: flight number as a string, e.g. 'flight159' and flight_date as a string, with date only (not time) in YYYMMDD format, e.g. '20110125' '''
+    ###Inputs: flight number as a string, e.g. 'flight159' and flight_date as a string, with date only (not time) in YYYMMDD format, e.g. '20110125'
     ## ----------------------------------------------- SET UP VARIABLES --------------------------------------------------##
     ## Load core data
     print('\nYes yes cuzzy, pretty soon you\'re gonna have some nice core data...')
@@ -350,6 +313,183 @@ def load_obs(flight, flight_date):
 
 IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_liq, drop_profile, drop_array, nconc_ice, box_IWC, box_LWC, box_nconc_ice, box_nconc_liq, n_ice_profile = load_obs(flight = 'flight152', flight_date = '20110118')
 
+# Load models in for times of interest: (59, 68) for time of flight, (47, 95) for midday-midnight (discard first 12 hours as spin-up)
+#HM_vars = load_model('Hallett_Mossop', (11,21))
+ice_off_vars = load_model(config = 'f152_ice_off', flight_date = '20110118T0000', times = (68,80))
+RA1M_mod_vars = load_model(config = 'RA1M_mod_24', flight_date = '20110118T0000', times = (68,80))
+#RA1T_mod_vars = load_model(config ='RA1T_mod_24', flight_date = '20110118T0000', times = (68,80))
+#RA1T_vars = load_model(config ='RA1T_24', flight_date = '20110118T0000', times = (68,80))
+#RA1M_vars = load_model(config ='RA1M_24', flight_date = '20110118T0000', times = (68,80))
+#CASIM_vars = load_model(config ='CASIM_24', flight_date = '20110118T0000', times = (68,80))
+#DeMott_vars = load_model(config ='DeMott', flight_date = '20110118T0000', times = (68,80))
+#CASIM_orig_vars = load_model(config ='CASIM_24', flight_date = '20110118T0000', times = (59,68))
+#DeMott__origvars = load_model(config ='DeMott', flight_date = '20110118T0000', times = (59,68))
+#fl_av_vars = load_model(config ='fl_av', flight_date = '20110118T0000', times = (47,95))
+#model_runs = [RA1M_vars, RA1M_mod_vars,RA1T_vars, RA1T_mod_vars, CASIM_vars,  DeMott_vars]#fl_av_vars,
+
+#t24_vars = load_model('24', (59,68))
+
+#RA1M_mod_SEB = load_SEB(config = 'RA1M_mod_24', flight_date = '20110118T0000')
+#RA1T_mod_SEB = load_SEB(config ='RA1T_mod_24', flight_date = '20110118T0000')
+#RA1T_SEB = load_SEB(config ='RA1T_24', flight_date = '20110118T0000')
+#RA1M_SEB = load_SEB(config ='RA1M_24', flight_date = '20110118T0000')
+#CASIM_SEB = load_SEB(config ='CASIM_24', flight_date = '20110118T0000')
+#DeMott_SEB = load_SEB(config ='DeMott', flight_date = '20110118T0000',)
+ice_off_SEB = load_model(config = 'f152_ice_off', flight_date = '20110118T0000')
+
+#model_runs = [RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, CASIM_vars, DeMott_vars]
+'''
+def print_stats(times):
+    model_mean = pd.DataFrame()
+    for run in model_runs:
+        #print('\n\nMean cloud box QCL of %(run)s is: '% locals()+str(np.mean(run['mean_QCL'])) )
+        #print('\n\nMean cloud box QCF of %(run)s is: '% locals()+str(np.mean(run['mean_QCF'])) )
+        #print('\n\nMean QCL at AWS 14 and 15 is ' + str(np.mean(run['AWS14_mean_QCL']))+ ' and ' + str(np.mean(run['AWS15_mean_QCL'])) + ', respectively in %(run)s' % locals())
+        #print ('\n\nMean QCF at AWS 14 and 15 is '+str(np.mean(run['AWS14_mean_QCF']))+' and '+str( np.mean(run['AWS15_mean_QCF']))+', respectively in %(run)s \n\n' % locals())
+        #print('\n\nMean cloud box LWP of %(run)s is: ' % locals() + str(run['box_mean_LWP']))
+        #print('\n\nMean cloud box IWP of %(run)s is: ' % locals() + str(run['box_mean_IWP']))
+        #print('\n\nMean LWP at AWS 14 and 15 is ' + str(run['AWS14_mean_LWP']) + ' and ' + str(run['AWS15_mean_LWP']) + ', respectively in %(run)s' % locals())
+        #print('\n\nMean IWP at AWS 14 and 15 is ' + str(run['AWS14_mean_IWP']) + ' and ' + str(run['AWS15_mean_IWP']) + ', respectively in %(run)s \n\n' % locals())
+        m = pd.DataFrame({'mean LWP': np.mean(run['LWP'][times[0]:times[1],133:207, 188:213].data),
+                          'mean IWP': np.mean(run['IWP'][times[0]:times[1],133:207, 188:213].data),
+                          'AWS 14 LWP': np.mean(run['LWP'][times[0]:times[1],199:201, 199:201].data),
+                          'AWS 14 IWP': np.mean(run['IWP'][times[0]:times[1],199:201, 199:201].data),
+                          'AWS 15 LWP': np.mean(run['LWP'][times[0]:times[1], 161:163, 182:184].data),
+                          'AWS 15 IWP': np.mean(run['IWP'][times[0]:times[1], 161:163, 182:184].data)}, index = [0])
+        model_mean = pd.concat([model_mean, m])
+        means = model_mean.mean(axis=0)
+        print means
+
+#print_stats(times = (68,80))
+
+## Load AWS metadata: data are formatted so that row [0] is the latitude, row [1] is the longitude, and each AWS is in a
+## separate column, so it can be indexed in the pandas dataframe
+AWS_loc = pd.read_csv('/data/clivarm/wip/ellgil82/AWS/AWS_loc.csv', header = 0)
+AWS_list = ['AWS15', 'AWS14']#, 'OFCAP']
+
+def load_AWS(station):
+    ## --------------------------------------------- SET UP VARIABLES ------------------------------------------------##
+    ## Load data from AWS 14 and AWS 15 for January 2011
+    print('\nDayum grrrl, you got a sweet AWS...')
+    os.chdir('/data/clivarm/wip/ellgil82/AWS/')
+    for file in os.listdir('/data/clivarm/wip/ellgil82/AWS/'):
+        if fnmatch.fnmatch(file, '%(station)s_Jan_2011*' % locals()):
+            AWS = pd.read_csv(str(file), header = 0)
+            print(AWS.shape)
+    Jan18 = AWS.loc[(AWS['Day'] == 18)]# & (AWS['Hour'] >= 12)]
+    #Jan18 = Jan18.append(AWS.loc[(AWS['Day'] == 19) & (AWS['Hour'] == 0)])
+    Day_mean = Jan18.mean(axis=0) # Calculates averages for whole day
+    Flight = Jan18.loc[(Jan18['Hour'] >=15) &  (Jan18['Hour'] <= 17)]#[(Jan18['Hour'] >= 12)]#
+    Flight_mean = Flight.mean(axis=0) # Calculates averages over the time period sampled (15:00 - 17:00)
+    return Flight_mean, Day_mean, Jan18
+
+AWS14_flight_mean, AWS14_day_mean, AWS14_Jan = load_AWS('AWS14')
+AWS15_flight_mean, AWS15_day_mean, AWS15_Jan = load_AWS('AWS15')
+AWS14_SEB_flight_mean, AWS14_SEB_day_mean, AWS14_SEB_Jan  = load_AWS('AWS14_SEB')
+
+## ----------------------------------------------- COMPARE MODEL & AWS ---------------------------------------------- ##
+
+real_lat = RA1M_mod_vars['real_lat']
+real_lon = RA1M_mod_vars['real_lon']
+
+## Finds closest model gridbox to specified point in real lat, lon coordinates (not indices)
+def find_gridloc(x,y):
+    lat_loc = np.argmin((real_lat-y)**2) #take whole array and subtract lat you want from each point, then find the smallest difference
+    lon_loc = np.argmin((real_lon-x)**2)
+    return lon_loc, lat_loc
+
+AWS14_lon, AWS14_lat = find_gridloc(AWS_loc['AWS14'][1], AWS_loc['AWS14'][0])
+AWS14_real_lon = real_lon[AWS14_lon]
+AWS14_real_lat = real_lat[AWS14_lat]
+AWS15_lon, AWS15_lat = find_gridloc(AWS_loc['AWS15'][1], AWS_loc['AWS15'][0])
+AWS15_real_lon = real_lon[AWS15_lon]
+AWS15_real_lat = real_lat[AWS15_lat]
+
+## -------------------------------------------- CALCULATE TOTAL SEB ------------------------------------------------- ##
+
+os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/t24/')
+def calc_SEB(run, times):
+    AWS14_SEB_flight = AWS14_SEB_flight_mean['SWnet_corr'] + AWS14_SEB_flight_mean['LWnet_corr'] + AWS14_SEB_flight_mean['Hsen'] + AWS14_SEB_flight_mean['Hlat'] - AWS14_SEB_flight_mean['Gs']
+    AWS14_melt_flight = AWS14_SEB_flight_mean['melt_energy']
+    AWS14_SEB_day = AWS14_SEB_day_mean['SWnet_corr'] + AWS14_SEB_day_mean['LWnet_corr'] + AWS14_SEB_day_mean['Hsen'] + AWS14_SEB_day_mean['Hlat']
+    AWS14_melt_day = AWS14_SEB_day_mean['melt_energy']
+    Model_SEB_flight_AWS14 = np.mean(run['LW_net'][times[0]:times[1],(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data, axis = (1,2)) + \
+                         np.mean(run['SW_net'][times[0]:times[1],(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data, axis = (1,2)) + \
+                         np.mean(run['SH'][times[0]:times[1],(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)], axis = (1,2)) + \
+                         np.mean(run['LH'][times[0]:times[1],(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)], axis = (1,2))
+    Model_SEB_day_AWS14 = np.mean(run['LW_net'][:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data, axis = (1,2)) + \
+                             np.mean(run['SW_net'][:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data, axis = (1,2)) + \
+                          np.mean(run['SH'][:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)], axis = (1,2)) + \
+                           np.mean(run['LH'][:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)], axis = (1,2))
+    Model_SEB_flight_AWS15 = np.mean(run['LW_net'][times[0]:times[1],(AWS15_lon-1):(AWS15_lon+1), (AWS15_lat-1):(AWS15_lat+1)].data, axis = (1,2)) + \
+                             np.mean(run['SW_net'][times[0]:times[1],(AWS15_lon-1):(AWS15_lon+1), (AWS15_lat-1):(AWS15_lat+1)].data, axis = (1,2)) + \
+                             np.mean(run['SH'][times[0]:times[1],(AWS15_lon-1):(AWS15_lon+1), (AWS15_lat-1):(AWS15_lat+1)], axis = (1,2)) + \
+                             np.mean(run['LH'][times[0]:times[1],(AWS15_lon-1):(AWS15_lon+1), (AWS15_lat-1):(AWS15_lat+1)], axis = (1,2))
+    Model_SEB_day_AWS15 = np.mean(run['LW_net'][:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data, axis = (1,2)) + \
+                             np.mean(run['SW_net'][:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data, axis = (1,2)) + \
+                          np.mean(run['SH'][:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)], axis = (1,2)) + \
+                           np.mean(run['LH'][:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)], axis = (1,2))
+    Time = run['LW_net'].coord('time')
+    # Time = Time + 0.5 # model data = hourly means, centred on the half-hour, so account for this
+    Model_time = Time.units.num2date(Time.points)
+    if run == CASIM_SEB or DeMott_SEB:
+        melt_masked_day = np.ma.masked_where(RA1M_mod_SEB['Ts'] < -0.025, Model_SEB_day_AWS14)
+        # melt_masked_day = melt_masked_day.clip(min=0)
+        melt_masked_flight = np.ma.masked_where(RA1M_mod_SEB['Ts'] < -0.025, Model_SEB_flight_AWS14)
+    else:
+        melt_masked_day = np.ma.masked_where(run['Ts'] < -0.025, Model_SEB_day_AWS14)
+        # melt_masked_day = melt_masked_day.clip(min=0)
+        melt_masked_flight = np.ma.masked_where(run['Ts'] < -0.025, Model_SEB_flight_AWS14)
+    return Model_SEB_day_AWS14, Model_SEB_day_AWS15, Model_SEB_flight_AWS14, Model_SEB_flight_AWS15, melt_masked_day, melt_masked_flight, AWS14_SEB_flight, AWS14_SEB_day, AWS14_melt_flight, AWS14_melt_day
+
+
+## ------------------------------------------- CALCULATE BIASES ----------------------------------------------------- ##
+def calc_bias(run, times, day): # times should be in tuple format, i.e. (start, end) and day should be True or False
+    AWS14_bias = []
+    AWS15_bias = []
+    for i, j in zip([run['LW_down'].data, run['LW_up'][:,0,:,:].data, run['LW_net'].data, run['SW_down'].data,run['SW_up'][:,0,:,:].data, run['SW_net'].data, run['LH'], run['SH']],
+                    ['LWin', 'LWout_corr', 'LWnet_corr','SWin_corr', 'SWout','SWnet_corr','Hlat','Hsen']):
+        if day == True:
+            AWS14_bias.append((np.mean(i[:,  (AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)])) - AWS14_SEB_day_mean[j])
+        elif day == False:
+            AWS14_bias.append((np.mean(i[times[0]:times[1], (AWS14_lon - 1):(AWS14_lon + 1), (AWS14_lat - 1):(AWS14_lat + 1)])) - AWS14_SEB_flight_mean[j])
+        else:
+            print('\'day\' must be set to True or False')
+    if day == True:
+        AWS14_bias.append(np.mean(melt_masked_day) - AWS14_SEB_day_mean['melt_energy'])
+    elif day == False:
+        AWS14_bias.append(np.mean(melt_masked_flight) - AWS14_SEB_flight_mean['melt_energy'])
+    for i, j in zip([run['LW_down'].data, run['LW_up'][:,0,:,:].data,  run['SW_down'].data, run['SW_up'][:,0,:,:].data],['Lin', 'Lout', 'Sin', 'Sout']):
+        if day == True:
+            AWS15_bias.append((np.mean(i[:, (AWS15_lon - 1):(AWS15_lon + 1), (AWS15_lat - 1):(AWS15_lat + 1)])) - AWS15_day_mean[j])
+        elif day == False:
+            AWS15_bias.append((np.mean(i[times[0]:times[1], (AWS15_lon - 1):(AWS15_lon + 1), (AWS15_lat - 1):(AWS15_lat + 1)])) - AWS15_flight_mean[j])
+    return AWS14_bias, AWS15_bias
+
+
+os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/t24/')
+
+names = ['RA1M', 'RA1M_mod', 'RA1T', 'RA1T_mod', 'Cooper', 'DeMott']
+model_runs = [RA1M_mod_vars]#[RA1M_SEB, RA1M_mod_SEB, RA1T_SEB, RA1T_mod_SEB, CASIM_SEB, DeMott_SEB]
+
+for run, name in zip(model_runs, names):
+    Model_SEB_day_AWS14, Model_SEB_day_AWS15, Model_SEB_flight_AWS14, Model_SEB_flight_AWS15, melt_masked_day, melt_masked_flight, \
+    obs_SEB_AWS14_flight,  obs_SEB_AWS14_day, obs_melt_AWS14_flight, obs_melt_AWS14_day = calc_SEB(run, times = (68,80))
+    AWS14_bias, AWS15_bias = calc_bias(run, times = (68,80), day = False)
+    print('\n\n'+name + ' bias at AWS 14:\n\n'), AWS14_bias
+    print('\n\n' + name + ' bias at AWS 15:\n\n'),  AWS15_bias
+
+
+
+print('mean obs IWC') 
+print(np.mean(IWC_profile))
+print('mean obs LWC') 
+print(np.mean(LWC_profile))
+print('mean mod IWC') 
+print(np.mean(RA1M_mod_vars['mean_QCF']))
+print('mean mod LWC')
+print(np.mean(RA1M_mod_vars['mean_QCL']))
+
 #mean_QCF, mean_QCL, altitude, liq_5, liq_95, max_QCF, max_QCL, min_QCF, min_QCL, ice_5, ice_95, AWS14_mean_QCF, AWS14_mean_QCL, AWS15_mean_QCF, AWS15_mean_QCL, real_lon, real_lat = load_model('CASIM_ctrl')
 
 ## ================================================= PLOTTING ======================================================= ##
@@ -368,7 +508,7 @@ def draw_screen_poly( lats, lons, m):
     xy = zip(x,y)
     poly = Polygon( xy, edgecolor='#222222', linewidth = 3, fill = False, facecolor = None, zorder = 5)
     plt.gca().add_patch(poly)
-
+'''
 def obs_mod_profile(run):
     fig, ax = plt.subplots(1,2, figsize=(16, 9))
     ax = ax.flatten()
@@ -388,23 +528,23 @@ def obs_mod_profile(run):
     ax[0].yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
     ax[0].xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))
     ax[0].ticklabel_format(style='sci', axis='x', scilimits=(0,0))
-    ax[0].set_xlim(0,0.1)
+    ax[0].set_xlim(0,0.04)
     ax[0].xaxis.get_offset_text().set_fontsize(24)
     ax[0].xaxis.get_offset_text().set_color('dimgrey')
     ax[0].fill_betweenx(run['altitude'], run['ice_5'], run['ice_95'], facecolor='lightslategrey', alpha=0.5)  # Shaded region between maxima and minima
-    #ax[0].plot(run['ice_5'], run['altitude'], color='darkslateblue', linestyle=':', linewidth=2)
-    #ax[0].plot(run['ice_95'], run['altitude'], color='darkslateblue', linestyle=':', linewidth=2)  # Plot 5th and 95th percentiles
+    ax[0].plot(run['ice_5'], run['altitude'], color='darkslateblue', linestyle=':', linewidth=2)
+    ax[0].plot(run['ice_95'], run['altitude'], color='darkslateblue', linestyle=':', linewidth=2)  # Plot 5th and 95th percentiles
     ax[0].text(x=0.0015, y=4.8, s='a', fontsize=32, fontweight='bold', color='dimgrey')
-    #m_14 = ax[0].plot(run['AWS14_mean_QCF'], run['altitude'], color='darkred', linestyle='--', linewidth=3)
+    m_14 = ax[0].plot(run['AWS14_mean_QCF'], run['altitude'], color='darkred', linestyle='--', linewidth=3)
     #m_15= ax[0].plot(run['AWS15_mean_QCF'], run['altitude'], color='darkblue', linestyle='--', linewidth=3)
     ax[1].set_xlabel('Cloud liquid mass mixing ratio \n(g kg$^{-1}$)', fontname='SegoeUI semibold', color='dimgrey',
                      fontsize=28, labelpad=35)
     p_QCL = ax[1].plot(LWC_profile, run['altitude'], color = 'k', linewidth = 2.5, label = 'Observations')
     m_QCL = ax[1].plot(run['mean_QCL'], run['altitude'], color = 'k', linestyle = '--', linewidth = 2.5, label = 'Model: \'cloud\' box mean')
     ax[1].fill_betweenx(run['altitude'], run['liq_5'], run['liq_95'],  facecolor='lightslategrey', alpha=0.5, label = 'Model: 5$^{th}$ & 95$^{th}$ percentiles\n of \'cloud\' box range')  # Shaded region between maxima and minima
-    #ax[1].plot(run['liq_5'], run['altitude'], color='darkslateblue', linestyle=':', linewidth=2, label='')
-    #ax[1].plot(run['liq_95'], run['altitude'], color='darkslateblue', linestyle=':', linewidth=2)  # Plot 5th and 95th percentiles
-    #m_14 = ax[1].plot(run['AWS14_mean_QCL'], run['altitude'], color='darkred', linestyle='--', linewidth=3, label='Model: AWS 14')
+    ax[1].plot(run['liq_5'], run['altitude'], color='darkslateblue', linestyle=':', linewidth=2, label='')
+    ax[1].plot(run['liq_95'], run['altitude'], color='darkslateblue', linestyle=':', linewidth=2)  # Plot 5th and 95th percentiles
+    m_14 = ax[1].plot(run['AWS14_mean_QCL'], run['altitude'], color='darkred', linestyle='--', linewidth=3, label='Model: AWS 14')
     #m_15 = ax[1].plot(run['AWS15_mean_QCL'], run['altitude'], color='darkblue', linestyle='--', linewidth=3, label='Model: AWS 15')
     ax[1].axes.tick_params(axis = 'both', which = 'both', direction = 'in', length = 5, width = 1.5,  labelsize = 24, pad = 10)
     ax[1].tick_params(labelleft = 'off')
@@ -417,24 +557,24 @@ def obs_mod_profile(run):
     ax[1].text(x=0.03, y=4.8, s='b', fontsize=32, fontweight='bold', color='dimgrey')
     plt.subplots_adjust(wspace=0.1, bottom=0.23, top=0.95, left=0.17, right=0.98)
     handles, labels = ax[1].get_legend_handles_labels()
-    handles = [handles[0], handles[1], handles[-1]]#, handles[2],  handles[3] ]
-    labels = [labels[0], labels[1], labels[-1]]#, labels[2], labels[3]]
+    handles = [handles[0], handles[1], handles[2], handles[-1]]#,  handles[3] ]
+    labels = [labels[0], labels[1], labels[2], labels[-1]]#, labels[3]]
     lgd = plt.legend(handles, labels, fontsize=20, markerscale=2)
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey')
     lgd.get_frame().set_linewidth(0.0)
     plt.setp(ax[0].get_xticklabels()[-3], visible=False)
     plt.setp(ax[1].get_xticklabels()[-3], visible=False)
-    #plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/vertical_profiles_RA1M_mod.eps', transparent = True)
-    #plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/vertical_profiles_RA1M_mod.png', transparent = True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/vertical_profiles_ice_off_shifted_AWS14.eps', transparent = True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/vertical_profiles_ice_off_shifted_AWS14.png', transparent = True)
     plt.show()
 
 
-#obs_mod_profile(RA1M_mod_vars)
+obs_mod_profile(ice_off_vars)
 
 ## Caption: mean modelled water paths (in g kg-1) over the Larsen C ice shelf during the time of flight 152 (16:00Z - 18:00Z)
 
-model_runs = [RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, CASIM_vars]#[RA1M_mod_vars]
+#model_runs = [RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, CASIM_vars]#[RA1M_mod_vars]
 
 #obs_mod_profile(RA1M_vars)
 
@@ -813,15 +953,12 @@ def IWP_time_srs():
     plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/vn11_water_path_time_srs.eps')
     plt.show()
 
-
-
 #IWP_time_srs()
-
 
 def all_mod_plot(run1, run2, run3, run4):
     fig, ax = plt.subplots(1,2, figsize=(16, 9))
     ax = ax.flatten()
-    IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_liq, drop_profile, drop_array, nconc_ice, box_IWC, box_LWC, box_nconc_ice, box_nconc_liq, n_ice_profile = load_obs()
+    IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_liq, drop_profile, drop_array, nconc_ice, box_IWC, box_LWC, box_nconc_ice, box_nconc_liq, n_ice_profile = load_obs(flight = 'flight152', flight_date = '20110118')
     for axs in ax:
         axs.spines['top'].set_visible(False)
         axs.spines['right'].set_visible(False)
@@ -840,7 +977,7 @@ def all_mod_plot(run1, run2, run3, run4):
     ax[0].yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
     ax[0].xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))
     ax[0].ticklabel_format(style='sci', axis='x', scilimits=(0,0))
-    ax[0].set_xlim(0,0.02)
+    ax[0].set_xlim(0,0.04)
     ax[0].xaxis.get_offset_text().set_fontsize(24)
     ax[0].xaxis.get_offset_text().set_color('dimgrey')
     #ax[0].fill_betweenx(run1['altitude'], run1['ice_5'], run1['ice_95'], facecolor='#f87e7e', alpha=0.5)
@@ -884,7 +1021,7 @@ def all_mod_plot(run1, run2, run3, run4):
     plt.show()
 
 
-#all_mod_plot(RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars)
+all_mod_plot(RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars)
 
 
 def dif_plot():
@@ -937,8 +1074,8 @@ def dif_plot():
 
 #dif_plot()
 
-RA1M_SEB = load_SEB(config = 'RA1M_24', flight_date= '20110118T0000')
-RA1M_mod_SEB = load_SEB(config = 'RA1M_mod_24', flight_date= '20110118T0000Z')
+#RA1M_SEB = load_SEB(config = 'RA1M_24', flight_date= '20110118T0000')
+#RA1M_mod_SEB = load_SEB(config = 'RA1M_mod_24', flight_date= '20110118T0000Z')
 
 #model_runs = ['RA1M_SEB']
 
@@ -1053,8 +1190,8 @@ def correl_SEB_sgl(runSEB, runMP, times, phase):
     fig, ax = plt.subplots(figsize = (12,6))
     if phase == 'liquid':
         # LW vs LWP
-        ax.set_xlim(260,330)
-        ax.set_ylim(0,300)
+        #ax.set_xlim(260,330)
+        #ax.set_ylim(0,300)
         ax.scatter(np.ravel(np.mean(runSEB['LW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))), np.ravel(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))), color='#f68080',s=50)
 #        ax.set_ylim(np.min(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=0)),
 #                          np.max(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
@@ -1068,13 +1205,13 @@ def correl_SEB_sgl(runSEB, runMP, times, phase):
         else:
             ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
                           s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax.transAxes, size=24, color='dimgrey')
-        ax.set_xlabel('Modelled LW$_{\downarrow}$ (W m$^{-2}$)', size=24, color='dimgrey', rotation=0,labelpad=10)
+        ax.set_xlabel('Modelled SW$_{\downarrow}$ (W m$^{-2}$)', size=24, color='dimgrey', rotation=0,labelpad=10)
         ax.set_ylabel('Modelled LWP \n(g m$^{-2}$)', size=24, color='dimgrey', rotation=0, labelpad=80)
         lab = ax.text(0.1, 0.85, transform=ax.transAxes, s='a', fontsize=32, fontweight='bold', color='dimgrey')
         ax.spines['right'].set_visible(False)
     elif phase == 'ice':
         # SW vs IWP
-        ax.set_xlim(290,600)
+        #ax.set_xlim(290,600)
         slope, intercept, r2, p, sterr = scipy.stats.linregress(np.ravel(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
             np.ravel(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
         if p <= 0.01:
@@ -1105,11 +1242,11 @@ def correl_SEB_sgl(runSEB, runMP, times, phase):
     [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
     #[l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
     plt.subplots_adjust(top=0.98, hspace=0.15, bottom=0.1, wspace=0.15, left=0.3, right=0.75)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_RA1M_mod'+phase+'_day.png', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_RA1M_mod'+phase+'_day.eps', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_RA1M_mod'+phase+'_day.pdf', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_DeMott_shifted'+phase+'.png', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_DeMott_shifted'+phase+'.eps', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_DeMott_shifted'+phase+'.pdf', transparent=True)
     plt.show()
 
 
 
-correl_SEB_sgl(RA1M_mod_SEB, RA1M_mod_vars, times = (47,96), phase = 'ice')
+correl_SEB_sgl(DeMott_SEB, DeMott_vars, times = (68,80), phase = 'liquid')
