@@ -317,11 +317,11 @@ IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_li
 #HM_vars = load_model('Hallett_Mossop', (11,21))
 ice_off_vars = load_model(config = 'f152_ice_off', flight_date = '20110118T0000', times = (68,80))
 RA1M_mod_vars = load_model(config = 'RA1M_mod_24', flight_date = '20110118T0000', times = (68,80))
-#RA1T_mod_vars = load_model(config ='RA1T_mod_24', flight_date = '20110118T0000', times = (68,80))
-#RA1T_vars = load_model(config ='RA1T_24', flight_date = '20110118T0000', times = (68,80))
-#RA1M_vars = load_model(config ='RA1M_24', flight_date = '20110118T0000', times = (68,80))
-#CASIM_vars = load_model(config ='CASIM_24', flight_date = '20110118T0000', times = (68,80))
-#DeMott_vars = load_model(config ='DeMott', flight_date = '20110118T0000', times = (68,80))
+RA1T_mod_vars = load_model(config ='RA1T_mod_24', flight_date = '20110118T0000', times = (68,80))
+RA1T_vars = load_model(config ='RA1T_24', flight_date = '20110118T0000', times = (68,80))
+RA1M_vars = load_model(config ='RA1M_24', flight_date = '20110118T0000', times = (68,80))
+CASIM_vars = load_model(config ='CASIM_24', flight_date = '20110118T0000', times = (68,80))
+DeMott_vars = load_model(config ='DeMott', flight_date = '20110118T0000', times = (68,80))
 #CASIM_orig_vars = load_model(config ='CASIM_24', flight_date = '20110118T0000', times = (59,68))
 #DeMott__origvars = load_model(config ='DeMott', flight_date = '20110118T0000', times = (59,68))
 #fl_av_vars = load_model(config ='fl_av', flight_date = '20110118T0000', times = (47,95))
@@ -335,7 +335,7 @@ RA1M_mod_vars = load_model(config = 'RA1M_mod_24', flight_date = '20110118T0000'
 #RA1M_SEB = load_SEB(config ='RA1M_24', flight_date = '20110118T0000')
 #CASIM_SEB = load_SEB(config ='CASIM_24', flight_date = '20110118T0000')
 #DeMott_SEB = load_SEB(config ='DeMott', flight_date = '20110118T0000',)
-ice_off_SEB = load_model(config = 'f152_ice_off', flight_date = '20110118T0000')
+#ice_off_SEB = load_SEB(config = 'f152_ice_off', flight_date = '20110118T0000')
 
 #model_runs = [RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, CASIM_vars, DeMott_vars]
 '''
@@ -570,13 +570,15 @@ def obs_mod_profile(run):
     plt.show()
 
 
-obs_mod_profile(ice_off_vars)
+#obs_mod_profile(ice_off_vars)
 
 ## Caption: mean modelled water paths (in g kg-1) over the Larsen C ice shelf during the time of flight 152 (16:00Z - 18:00Z)
 
-#model_runs = [RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, CASIM_vars]#[RA1M_mod_vars]
+model_runs = [RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, CASIM_vars, DeMott_vars, ice_off_vars]#[RA1M_mod_vars]
 
 #obs_mod_profile(RA1M_vars)
+
+#model_runs = [ice_off_vars]
 
 def column_totals():
     fig, ax = plt.subplots(len(model_runs), 2, sharex='col', figsize=(15, len(model_runs * 5) + 3))
@@ -632,11 +634,41 @@ def column_totals():
     plt.subplots_adjust(hspace=0.08, wspace=0.08, top=0.85)
     #ax[0].set_title('Total column ice', fontname='Helvetica', color='dimgrey', fontsize=28, )
     #ax[1].set_title('Total column liquid', fontname='Helvetica', color='dimgrey', fontsize=28, )
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/v11_mod_comparison_24.png', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/v11_mod_comparison_24.eps', transparent=True)
+    #plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/v11_mod_comparison_24.png', transparent=True)
+    #plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/v11_mod_comparison_24.eps', transparent=True)
     plt.show()
 
 #column_totals()
+
+model_runs = [RA1M_vars, RA1M_mod_vars,RA1T_vars, RA1T_mod_vars]
+
+
+def plot_struc():
+    fig, ax = plt.subplots(2,2, figsize = (10,10))
+    ax = ax.flatten()
+    plot = 0
+    norm = matplotlib.colors.Normalize(vmin=0, vmax=0.2)
+    cbAx = fig.add_axes([0.25, 0.9, 0.5, 0.03])
+    for i in model_runs:
+        c = ax[plot].contourf(np.mean(i['box_QCL'], axis = (0,2)), vmin = 0., vmax = 0.2)
+        ax[plot].axis('off')
+        c.set_norm(norm)
+        plot = plot+1
+    cb = plt.colorbar(c, cax = cbAx, orientation = 'horizontal', ticks = [0., 0.1, 0.2])
+    cbAx.set_xlabel('Liquid water contents (g kg$^{-1}$)', fontname='Helvetica', color='dimgrey', fontsize=24, labelpad=10)
+    cb.solids.set_edgecolor("face")
+    cb.outline.set_edgecolor('dimgrey')
+    cb.ax.tick_params(which='both', axis='both', labelsize=28, labelcolor='dimgrey', pad=10, size=0, tick1On=False, tick2On=False)
+    cb.outline.set_linewidth(2)
+    cb.ax.xaxis.set_ticks_position('top')
+    cb.ax.set_xticks([0, 0.1, 0.2])
+    plt.subplots_adjust(top = 0.8, bottom = 0.05, hspace = 0.1, wspace=0.1)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/QCL_transects_sgl_mom.png')
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/QCL_transects_sgl_mom.eps')
+    plt.show()
+
+plot_struc()
+
 
 def QCF_plot():
     fig, ax = plt.subplots(len(model_runs), 2, sharex='col', figsize=(15, len(model_runs * 5) + 3))
@@ -885,7 +917,7 @@ def correl_plot():
 from matplotlib.lines import Line2D
 
 def IWP_time_srs():
-    model_runs = [RA1M_vars, RA1M_mod_vars,  RA1T_vars, RA1T_mod_vars, CASIM_vars]#[RA1M_vars, RA1M_mod_vars] fl_av_vars -- CASIM has IWP and LWP in the wrong file stream
+    model_runs = [ice_off_vars]#[RA1M_vars, RA1M_mod_vars,  RA1T_vars, RA1T_mod_vars, CASIM_vars]#[RA1M_vars, RA1M_mod_vars] fl_av_vars -- CASIM has IWP and LWP in the wrong file stream
     fig, ax = plt.subplots(len(model_runs),2, sharex='col', figsize=(18,len(model_runs*5)+5))#, squeeze=False)
     ax = ax.flatten()
     ax2 = np.empty_like(ax)
@@ -949,11 +981,20 @@ def IWP_time_srs():
     fig.text(0.5, 0.08, 'Time (hours)', fontsize=24, fontweight = 'bold', ha = 'center', va = 'center', color = 'dimgrey')
     fig.text(0.08, 0.55, 'IWP (g kg$^{-1}$)', fontsize=30, ha= 'center', va='center', rotation = 0, color = 'dimgrey')
     fig.text(0.92, 0.55, 'LWP (g kg$^{-1}$)', fontsize=30, ha='center', va='center', color = 'dimgrey', rotation=0)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/vn11_water_path_time_srs.png')
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/vn11_water_path_time_srs.eps')
+    #plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/vn11_water_path_time_srs.png')
+    #plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/vn11_water_path_time_srs.eps')
     plt.show()
 
+
 #IWP_time_srs()
+
+colour_dict = {RA1M_vars: '#f87e7e',
+               RA1M_mod_vars: '#1f78b4',
+               RA1T_vars: '#33a02c',
+               RA1T_mod_vars: 'dimgrey',
+               DeMott_vars: '#EA580F',
+               CASIM_vars: '#5D13E8',
+               ice_off_vars: '#DC143C'}
 
 def all_mod_plot(run1, run2, run3, run4):
     fig, ax = plt.subplots(1,2, figsize=(16, 9))
@@ -966,10 +1007,10 @@ def all_mod_plot(run1, run2, run3, run4):
         axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
         axs.set_ylim(0, max(run1['altitude']))
         [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
-    m1_QCF = ax[0].plot(run1['mean_QCF'], run1['altitude'], color = '#f87e7e', linestyle = '--', linewidth = 2.5, label = 'RA1M')
-    m2_QCF = ax[0].plot(run2['mean_QCF'], run2['altitude'], color='#1f78b4', linestyle='--', linewidth=2.5, label = 'RA1M_mod')
-    m3_QCF = ax[0].plot(run3['mean_QCF'], run3['altitude'], color='#33a02c', linestyle='--', linewidth=2.5, label='RA1T')
-    m4_QCF = ax[0].plot(run4['mean_QCF'], run4['altitude'], color='dimgrey', linestyle='--', linewidth=2.5, label='RA1T_mod')
+    m1_QCF = ax[0].plot(run1['mean_QCF'], run1['altitude'], color = '#1f78b4', linestyle = '--', linewidth = 2.5, label = 'RA1M_mod')
+    m2_QCF = ax[0].plot(run2['mean_QCF'], run2['altitude'], color='#5D13E8', linestyle='--', linewidth=2.5, label = 'Cooper (1986)')
+    m3_QCF = ax[0].plot(run3['mean_QCF'], run3['altitude'], color='#EA580F', linestyle='--', linewidth=2.5, label='DeMott (2010)')
+    m4_QCF = ax[0].plot(run4['mean_QCF'], run4['altitude'], color='#DC143C', linestyle='--', linewidth=2.5, label='DeMott ice off')
     p_QCF = ax[0].plot(IWC_profile, run1['altitude'], color = 'k', linewidth = 2.5, label = 'Observations')
     ax[0].set_xlabel('Cloud ice mass mixing ratio \n(g kg$^{-1}$)', fontname='SegoeUI semibold', color='dimgrey',
                      fontsize=28, labelpad=35)
@@ -988,10 +1029,10 @@ def all_mod_plot(run1, run2, run3, run4):
     ax[1].set_xlabel('Cloud liquid mass mixing ratio \n(g kg$^{-1}$)', fontname='SegoeUI semibold', color='dimgrey',
                      fontsize=28, labelpad=35)
     p_QCL = ax[1].plot(LWC_profile, run1['altitude'], color = 'k', linewidth = 2.5, label = 'Observations')
-    m1_QCL = ax[1].plot(run1['mean_QCL'], run1['altitude'], color = '#f87e7e', linestyle = '--', linewidth = 2.5, label = 'RA1M')
-    m2_QCL = ax[1].plot(run2['mean_QCL'], run2['altitude'], color='#1f78b4', linestyle='--', linewidth=2.5, label='RA1M_mod')
-    m3_QCL = ax[1].plot(run3['mean_QCL'], run3['altitude'], color='#33a02c', linestyle='--', linewidth=2.5, label='RA1T')
-    m4_QCL = ax[1].plot(run4['mean_QCL'], run4['altitude'], color='dimgrey', linestyle='--', linewidth=2.5, label='RA1T_mod')
+    m1_QCL = ax[1].plot(run1['mean_QCL'], run1['altitude'], color = '#1f78b4', linestyle = '--', linewidth = 2.5, label = 'RA1M_mod')
+    m2_QCL = ax[1].plot(run2['mean_QCL'], run2['altitude'], color='#5D13E8', linestyle='--', linewidth=2.5, label='Cooper (1986)')
+    m3_QCL = ax[1].plot(run3['mean_QCL'], run3['altitude'], color='#EA580F', linestyle='--', linewidth=2.5, label='DeMott (2010)')
+    m4_QCL = ax[1].plot(run4['mean_QCL'], run4['altitude'], color='#DC143C', linestyle='--', linewidth=2.5, label='DeMott ice off')
     #ax[1].fill_betweenx(run1['altitude'], run1['liq_5'], run1['liq_95'],  facecolor='#f87e7e', alpha=0.5)
     #ax[1].fill_betweenx(run2['altitude'], run2['liq_5'], run2['liq_95'], facecolor='#1f78b4', alpha=0.3)# Shaded region between maxima and minima
     #ax[1].plot(run['liq_5'], run['altitude'], color='darkslateblue', linestyle=':', linewidth=2, label='')
@@ -1016,12 +1057,12 @@ def all_mod_plot(run1, run2, run3, run4):
     lgd.get_frame().set_linewidth(0.0)
     plt.setp(ax[0].get_xticklabels()[-3], visible=False)
     plt.setp(ax[1].get_xticklabels()[-3], visible=False)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/vertical_profiles_mean_comparison.eps')
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/vertical_profiles_mean_comparison.png')
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/vertical_profiles_mean_comparison_dbl_mom.eps')
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/vertical_profiles_mean_comparison_dbl_mom.png')
     plt.show()
 
 
-all_mod_plot(RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars)
+all_mod_plot(RA1M_mod_vars, CASIM_vars, DeMott_vars, ice_off_vars)
 
 
 def dif_plot():

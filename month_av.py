@@ -202,10 +202,6 @@ def load_mp(config, vars):
     #ice_PDF = mean_ice.plot.density(linestyle = '--', linewidth=1.5, color='k')
     return  config_dict, constr_lsm, constr_orog
 
-# 'box_QCF': box_QCF, 'box_QCL': box_QCL,
-#'cl_A': cl_A,'qc': qc,'ice_5': ice_5, 'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'min_QCF': min_QCF, 'max_QCF': max_QCF,'IWP': IWP, 'LWP':LWP,
-# 'min_QCL': min_QCL, 'real_lon': real_lon, 'real_lat':real_lat,'box_mean_IWP': box_mean_IWP, 'box_mean_LWP': box_mean_LWP,'AWS14_mean_LWP': AWS14_mean_LWP,
-
 def load_SEB(config, vars):
     ''' Import surface energy balance quantities at AWS 14 from an OFCAP model run.
 
@@ -308,12 +304,106 @@ def load_SEB(config, vars):
         var_dict = {'SW_up': SW_up, 'SW_down': SW_down, 'LH': LH, 'SH': SH, 'LW_up': LW_up, 'LW_down': LW_down,  'Ts': Ts}
     return var_dict
 
-def load_met(var):
+def load_temp(config):
+    ''' Import temperatures at AWS 14 from an OFCAP model run.
+
+    Inputs:
+        - config = model configuration used
+
+    Author: Ella Gilbert, 2018.
+
+    '''
     start = time.time()
     pa = []
-    print('\nimporting data from %(var)s...' % locals())
+    print('\nimporting data from %(config)s...' % locals())
     for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/'):
-        if fnmatch.fnmatch(file, '*%(var)s*_pa*' % locals()):
+        if fnmatch.fnmatch(file, '*%(config)s*_pa*' % locals()):
+            pa.append(file)
+    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/')
+    print('\nAir temperature')
+    # Load only last 12 hours of forecast (i.e. t+12 to t+24, discarding preceding 12 hours as spin-up) for bottom 40 levels, and perform unit conversion from K to *C
+    T_air = iris.load_cube(pa, iris.Constraint(name='air_temperature', model_level_number=lambda cell: cell <= 40, forecast_period=lambda cell: cell >= 12.5,
+                                               grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9))
+    T_air.convert_units('celsius')
+    print('\nAir potential temperature')
+    theta = iris.load_cube(pa, iris.Constraint(name='air_potential_temperature', model_level_number=lambda cell: cell <= 40, forecast_period=lambda cell: cell >= 12.5,
+                                               grid_longitude=lambda cell: 178.5 < cell < 180.6,
+                                               grid_latitude=lambda cell: -2.5 < cell < 0.9))
+    theta.convert_units('celsius')
+    print('\nSurface temperature')
+    Ts = iris.load_cube(pa, iris.Constraint(name='surface_temperature', forecast_period=lambda cell: cell >= 12.5,
+                                            grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9))
+    Ts.convert_units('celsius')
+    print('\nLSM')
+    lsm = iris.load_cube(pa, 'land_binary_mask')
+    print('\nOrography')
+    orog = iris.load_cube(pa, 'surface_altitude')
+    for i in [theta, T_air ]:  # 4-D variables
+        real_lon, real_lat = rotate_data(i, 3, 4)
+    for j in [Ts]:  # 3-D variables
+        real_lon, real_lat = rotate_data(j, 2, 3)  # time vars don't load in properly = forecast time + real time
+    for k in [lsm, orog]:  # 2-D variables
+        real_lon, real_lat = rotate_data(k, 0, 1)
+    # Convert times to useful ones
+    print('\nConverting times...')
+    for i in [theta, T_air, Ts]:
+        i.coord('time').convert_units('hours since 2011-01-01 00:00')
+    # Create spatial means for maps
+    print('\nCalculating means...')
+    mean_Ts = np.mean(Ts.data, axis=(0, 1))
+    # Sort out time series loading
+    def construct_srs(cube):
+        i = np.arange(len(cube.coord('forecast_period')))
+        k = cube.data
+        series = []
+        for j in i:
+            a = k[:, j, :, :, :]
+            a = np.array(a)
+            series = np.append(series, a)
+        return series
+    # Produce time series
+    print('\nCreating time series...')
+    AWS14_Ts = Ts[:, :, 200, 200]
+    AWS14_Ts_srs = construct_srs(AWS14_Ts)
+    AWS14_Tair = T_air[:, :, 0, 200, 200]
+    AWS14_Tair_srs = construct_srs(AWS14_Tair)
+    AWS15_Ts = Ts[:, :, 162, 183]
+    AWS15_Ts_srs = construct_srs(AWS14_Ts)
+    AWS15_Tair = T_air[:, :, 0, 162, 183]
+    AWS15_Tair_srs = construct_srs(AWS14_Tair)
+    print('\n Calculating spatial means for AWS 14...')
+    AWS14_mean_T = np.mean(T_air[:, :, 40, 199:201, 199:201].data, axis=(0, 1, 3, 4))
+    AWS14_mean_theta = np.mean(theta[:, :, 40, 199:201, 199:201].data, axis=(0, 1, 3, 4))
+    print('\nLast bit! Repeating for AWS 15...')
+    AWS15_mean_T = np.mean(T_air[:, :, 40, 161:163, 182:184].data, axis=(0, 1, 3, 4))
+    AWS15_mean_theta = np.mean(theta[:, :, 40, 161:163, 182:184].data, axis=(0, 1, 3, 4))
+    altitude = T_air.coord('level_height').points[:40] / 1000
+    var_dict = {'real_lon': real_lon, 'real_lat': real_lat, 'lsm': lsm, 'orog': orog, 'altitude': altitude,
+              'AWS14_mean_T': AWS14_mean_T, 'AWS14_mean_theta': AWS14_mean_theta,
+                'AWS15_mean_T': AWS15_mean_T, 'AWS15_mean_theta': AWS15_mean_theta,
+                'AWS14_Ts_srs': AWS14_Ts_srs, 'AWS14_Tair_srs': AWS14_Tair_srs, 'AWS15_Ts_srs': AWS15_Ts_srs,
+                'AWS15_Tair_srs': AWS15_Tair_srs}
+    end = time.time()
+    print
+    '\nDone, in {:01d} secs'.format(int(end - start))
+    return var_dict
+
+Jan_temp = load_temp('lg_t')
+
+def load_met(config):
+    ''' Import meteorological quantities at AWS 14 from an OFCAP model run.
+
+    Inputs:
+        - config = model configuration used
+
+    Author: Ella Gilbert, 2018.
+
+    '''
+    start = time.time()
+    pa = []
+    print('\nimporting data from %(config)s...' % locals())
+    for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/'):
+        if fnmatch.fnmatch(file, '*%(config)s*_pa*' % locals()):
             pa.append(file)
     os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/')
     print('\nAir temperature')
@@ -409,7 +499,7 @@ def load_met(var):
 
 Jan_SEB = load_SEB(config = 'lg_t', vars = 'SEB')
 #Jan_mp, constr_lsm, constr_orog = load_mp(config = 'lg_t', vars = 'water paths')
-#Jan_met = load_met('lg_t')
+Jan_met = load_met('lg_t')
 
 def load_AWS(station, period):
     ## --------------------------------------------- SET UP VARIABLES ------------------------------------------------##
@@ -450,6 +540,7 @@ def print_stats():
 
 #print_stats()
 
+## Hacky fix to deal with iris loading forecast period and forecast time separately
 
 def construct_srs(var_name):
     i = np.arange(var_name.shape[1])
