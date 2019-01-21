@@ -12,10 +12,12 @@ from tools import compose_date, compose_time
 from rotate_data import rotate_data
 from matplotlib import rcParams
 from matplotlib.lines import Line2D
+import time
 
 
 # Load model data
 def load_model(config, flight_date, times): #times should be a range in the format 11,21
+    start = time.time()
     pa = []
     pb = []
     pc = []
@@ -150,6 +152,9 @@ def load_model(config, flight_date, times): #times should be a range in the form
                     'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'box_QCF': box_QCF, 'box_QCL': box_QCL, 'vert_5': vert_5,
                      'vert_95': vert_95, 'LWP_transect': LWP_transect,'IWP_transect': IWP_transect, 'QCL_profile': QCL_profile,
                     'QCF_transect': transect_box_QCF, 'QCL_transect':transect_box_QCL, 'QCF': ice_mass_frac, 'QCL': liq_mass_frac}
+    end = time.time()
+    print
+    '\nDone, in {:01d} secs'.format(int(end - start))
     return  var_dict
 
 # Load models in for times of interest: (59, 68) for time of flight, (47, 95) for midday-midnight (discard first 12 hours as spin-up)
@@ -161,15 +166,33 @@ ice_off_vars = load_model(config = 'ice_off', flight_date = '20110115T0000', tim
 
 model_runs = [RA1M_mod_vars, Cooper_vars, DeMott_vars, ice_off_vars]#, CASIM_vars fl_av_vars, ]
 
-fig, ax = plt.subplots(2,2)
-ax = ax.flatten()
-plot = 0
-for i in model_runs:
-    c = ax[plot].contourf(np.mean(i['QCL_transect'], axis = (0,2)), vmin = 0., vmax = 0.1)
-    plot = plot+1
+#Plot vertical profile
+def plot_struc():
+    fig, ax = plt.subplots(2,2, figsize = (10,10))
+    ax = ax.flatten()
+    plot = 0
+    cbAx = fig.add_axes([0.25, 0.9, 0.5, 0.03])
+    for i in model_runs:
+        c = ax[plot].contourf(np.mean(i['QCL_transect'], axis = (0,2)), vmin = 0., vmax = 0.2)
+        ax[plot].axis('off')
+        plot = plot+1
+    cb = plt.colorbar(c, cax = cbAx, orientation = 'horizontal', ticks = [0., 0.2])
+    cbAx.set_xlabel('Liquid water contents (g kg$^{-1}$)', fontname='Helvetica', color='dimgrey', fontsize=24, labelpad=10)
+    cb.solids.set_edgecolor("face")
+    cb.outline.set_edgecolor('dimgrey')
+    cb.ax.tick_params(which='both', axis='both', labelsize=28, labelcolor='dimgrey', pad=10, size=0, tick1On=False, tick2On=False)
+    cb.outline.set_linewidth(2)
+    cb.ax.xaxis.set_ticks_position('top')
+    #labels = [item.get_text() for item in cb.ax.get_xticklabels()]
+    #labels[-1] = '0.1'
+    #labels[0] = '0'
+    cb.ax.set_xticks([0, 0.2])
+    plt.subplots_adjust(top = 0.8, bottom = 0.05, hspace = 0.1, wspace=0.1)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f150/QCL_transects.png')
+    plt.savefig('/users/ellgil82/figures/Cloud data/f150/QCL_transects.eps')
+    plt.show()
 
-plt.colorbar(c)
-plt.show()
+plot_struc()
 
 fig, ax = plt.subplots(2,2)
 ax = ax.flatten()
@@ -561,9 +584,9 @@ def calc_bias(run, times, day): # times should be in tuple format, i.e. (start, 
 #obs_SEB_AWS14_flight,  obs_SEB_AWS14_day, obs_melt_AWS14_flight, obs_melt_AWS14_day = calc_SEB(Cooper_SEB, times = (47,95))
 
 Model_SEB_day_AWS14, Model_SEB_day_AWS15, Model_SEB_flight_AWS14, Model_SEB_flight_AWS15,  \
-obs_SEB_AWS14_flight,  obs_SEB_AWS14_day, melt_masked_flight = calc_SEB(DeMott_SEB, times = (59,69))
+obs_SEB_AWS14_flight,  obs_SEB_AWS14_day, melt_masked_flight = calc_SEB(ice_off_SEB, times = (59,69))
 
-AWS14_bias, AWS15_bias = calc_bias(DeMott_SEB, times = (59,69), day = False)
+AWS14_bias, AWS15_bias = calc_bias(ice_off_SEB, times = (59,69), day = False)
 
 
 # Plot liquid vs. ice for observations only
@@ -687,7 +710,7 @@ def mfrac_transect():
     RA1M_LWC = ax2.plot(lon_bins, np.mean(RA1M_mod_vars['QCL_transect'], axis = (0,1,2)), lw = 2, color='#1f78b4', label = 'RA1M_mod')
     DeMott_LWC = ax2.plot(lon_bins, np.mean(DeMott_vars['QCL_transect'], axis = (0,1,2)), lw=2, color='#EA580F', label='DeMott')
     Cooper_LWC = ax2.plot(lon_bins, np.mean(Cooper_vars['QCL_transect'], axis = (0,1,2)), lw=2, color='#5D13E8', label='Cooper')
-    #ice_off_LWC = ax2.plot(lon_bins, np.mean(ice_off_vars['QCL_transect'], axis = (0,1,2)), lw=2, color='#DC143C', label='no ice')
+    ice_off_LWC = ax2.plot(lon_bins, np.mean(ice_off_vars['QCL_transect'], axis = (0,1,2)), lw=2, color='#DC143C', label='no ice')
     mean_obs = ax2.axhline(y = np.mean(LWC_leg1), linestyle = '--', color = '#222222', lw = 2, label = 'Observed transect mean')
     #ax2.fill_between(lon_bins, RA1M_mod_vars['liq_5'], RA1M_mod_vars['liq_95'], facecolor='#1f78b4', alpha = 0.5)
     #ax2.fill_between(lon_bins, Cooper_vars['liq_5'], Cooper_vars['liq_95'], facecolor='#EA580F', alpha=0.5)
