@@ -127,24 +127,26 @@ def print_stats():
         print('\n LWC: ')
         print LWC_mn
 
-print_stats()
+#print_stats()
 
 def calc_mean():
     mean_dict = []
     for i in flight_list:
         nice_mn, IWC_mn, ndrop_mn, LWC_mn = load_obs(flight=i, flight_date=flight_dict[i])
         mean_dict = np.append(mean_dict,[nice_mn, IWC_mn, ndrop_mn, LWC_mn])
-    mean_dict = np.resize(mean_dict, new_shape = (len(flight_list),4))
-    means = np.mean(mean_dict, axis = 0)
-    print('\n\nMean stats for OFCAP cloud flights:')
-    print('\n ice number: ')
-    print(means[0])
-    print('\n IWC: ')
-    print(means[1])
-    print('\n droplet number: ')
-    print(means[2])
-    print('\n LWC: ')
-    print(means[3])
+        means = [nice_mn, IWC_mn, ndrop_mn, LWC_mn]
+        print('\n\nMean stats for OFCAP cloud flights:')
+        print('\n ice number: ')
+        print(means[0])
+        print('\n IWC: ')
+        print(means[1])
+        print('\n droplet number: ')
+        print(means[2])
+        print('\n LWC: ')
+        print(means[3])
+    mean_dict = np.resize(mean_dict, new_shape=(len(flight_list), 4))
+    df = pd.DataFrame(mean_dict, columns = ['nconc ice', 'mean IWC', 'nconc liq', 'mean LWC'], index=flight_list)
+    df.to_csv('/data/mac/ellgil82/cloud_data/flights/OFCAP_flight_means.csv')
 
+#calc_mean()
 
-calc_mean()
