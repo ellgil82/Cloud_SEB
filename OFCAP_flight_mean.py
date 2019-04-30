@@ -109,9 +109,12 @@ def load_obs(flight, flight_date):
         ndrop_masked = np.ma.masked_where(ndropflight < 1.0, ndropflight)
         LWC_mn = np.ma.mean(LWC_masked)
         ndrop_mn = np.ma.mean(ndrop_masked)
-        return nice_mn, IWC_mn, ndrop_mn, LWC_mn
+        return nice_mn, IWC_mn, ndrop_mn, LWC_mn, IWC_masked, LWC_masked, core_temp
     except:
         print('Sorry, no can do for that flight')
+
+nice_mn, IWC_mn, ndrop_mn, LWC_mn, IWC_masked, LWC_masked, core_temp = load_obs(flight='flight152', flight_date = '2011-01-18')
+
 
 
 def print_stats():
@@ -129,8 +132,18 @@ def print_stats():
 
 #print_stats()
 
-def calc_mean():
+def calc_mean(flight_list):
     mean_dict = []
+    flight_dict = {'flight150': '2011-01-15',
+                   'flight152': '2011-01-18',
+                   'flight153': '2011-01-19',
+                   'flight154': '2011-01-20',
+                   # 'flight155': '2011-01-21',
+                   'flight159': '2011-01-25',
+                   'flight168': '2011-01-31',
+                   'flight170': '2011-02-01',
+                   'flight172': '2011-02-02',
+                   'flight179': '2011-02-06'}
     for i in flight_list:
         nice_mn, IWC_mn, ndrop_mn, LWC_mn = load_obs(flight=i, flight_date=flight_dict[i])
         mean_dict = np.append(mean_dict,[nice_mn, IWC_mn, ndrop_mn, LWC_mn])
