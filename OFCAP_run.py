@@ -172,7 +172,7 @@ def time_srs_plot():
 #mean_obs = pd.read_csv('/data/mac/ellgil82/cloud_data/flights/OFCAP_flight_means.csv')
 
 def plot_profile(var, domain, plot_obs):
-    var_dict = {'theta': 'daymn_theta.nc', 'QCL': 'daymn_QCL.nc', 'QCF': 'daymn_QCF.nc', 'q': 'daymn_q.nc', 'Tair': 'daymn_Tair.nc' }
+    var_dict = {'theta': 'daymn_theta.nc', 'QCL': '../netcdfs/OFCAP_QCL.nc', 'QCF': '../netcdfs/OFCAP_QCF.nc', 'q': 'daymn_q.nc', 'Tair': 'daymn_Tair.nc' }
     cubes = iris.load(var_dict[var])
     profile_var = cubes[0]
     orog = iris.load_cube('OFCAP_orog.nc', 'surface_altitude')
@@ -195,6 +195,10 @@ def plot_profile(var, domain, plot_obs):
         factory = iris.aux_factory.HybridHeightFactory(delta=profile_var.coord("Hybrid height"), orography=profile_var.coord("surface_altitude"))
         profile_var.add_aux_factory(factory)  # this should produce a 'derived coordinate', 'altitude' (test this with >>> print theta)
         altitude = profile_var.coord('altitude').points[:, 0,0]
+    if var == 'QCF':
+        profile_var.data[profile_var.data <= 0.0001] = 0 # minimum observed in-cloud mass fraction threshold
+    elif var == 'QCL':
+        profile_var.data[profile_var.data <= 0.0000015] = 0
     if domain == 'ice shelf' or domain == 'Larsen C':
         # Create Larsen mask
         Larsen_mask = np.zeros((400, 400))
