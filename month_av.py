@@ -250,6 +250,20 @@ def load_SEB(config, vars):
                                                          forecast_period=lambda cell: cell >= 12.5))
         except iris.exceptions.ConstraintMismatchError:
             print('\n Downwelling LW not in this file')
+        print('\n Net longwave')
+        try:
+            LW_net = iris.load_cube(pf, iris.Constraint(name='surface_net_downward_longwave_flux', grid_longitude=180,
+                                                         grid_latitude=0,
+                                                         forecast_period=lambda cell: cell >= 12.5))
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n Net LW not in this file')
+        print('\n Net shortwave')
+        try:
+            SW_net = iris.load_cube(pf, iris.Constraint(name='surface_net_downward_shortwave_flux', grid_longitude=180,
+                                                         grid_latitude=0,
+                                                         forecast_period=lambda cell: cell >= 12.5))
+        except iris.exceptions.ConstraintMismatchError:
+            print('\n Net SW not in this file')
         print('\nDownwelling shortwave')
         try:
             SW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_shortwave_flux_in_air',
@@ -265,6 +279,7 @@ def load_SEB(config, vars):
                                                        model_level_number = 1, forecast_period=lambda cell: cell >= 12.5))
         except iris.exceptions.ConstraintMismatchError:
             print('\n Upwelling SW not in this file')
+            SW_up = SW_net - SW_down
         print('\nUpwelling longwave')
         try:
             LW_up = iris.load_cube(pf, iris.Constraint(name='upwelling_longwave_flux_in_air',
@@ -273,7 +288,8 @@ def load_SEB(config, vars):
                                                        model_level_number=1,
                                                        forecast_period=lambda cell: cell >= 12.5))
         except iris.exceptions.ConstraintMismatchError:
-             print('\n Upwelling LW not in this file')
+            print('\n Upwelling LW not in this file')
+            LW_up = LW_net - LW_down
         print('\nSensible heat')
         try:
             SH = iris.load_cube(pf, iris.Constraint(name='surface_upward_sensible_heat_flux',
@@ -1139,6 +1155,71 @@ def boxplot(data):
     plt.show()
 
 boxplot(data = 'SEB')
+
+
+
+def correl_SEB_sgl(runSEB, runMP, times, phase):
+    fig, ax = plt.subplots(figsize = (12,6))
+    if phase == 'liquid':
+        # LW vs LWP
+        #ax.set_xlim(260,330)
+        #ax.set_ylim(0,300)
+        ax.scatter(np.ravel(np.mean(runSEB['melt'][times[0]:times[1], 133:207, 188:213], axis=(0))), np.ravel(np.mean(runMP['cl_A'][times[0]:times[1]:4, 133:207, 188:213].data, axis=(0))), color='#f68080',s=50)
+#        ax.set_ylim(np.min(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=0)),
+#                          np.max(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+#        ax.set_xlim(np.min(np.mean(runSEB['LW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
+#                          np.max(np.mean(runSEB['LW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(np.ravel(np.mean(runSEB['melt'][times[0]:times[1], 133:207, 188:213], axis=(0))),
+            np.ravel(np.mean(runMP['cl_A'][times[0]:times[1]:4, 133:207, 188:213].data, axis=(0))))
+        if p <= 0.01:
+            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top', s='r$^{2}$ = %s' % np.round(r2, decimals=2),
+                          fontweight='bold', transform=ax.transAxes, size=24,color='dimgrey')
+        else:
+            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                          s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax.transAxes, size=24, color='dimgrey')
+        ax.set_xlabel('Modelled melt (W m$^{-2}$)', size=24, color='dimgrey', rotation=0,labelpad=10)
+        ax.set_ylabel('Modelled cloud area fraction', size=24, color='dimgrey', rotation=0, labelpad=80)
+        lab = ax.text(0.1, 0.85, transform=ax.transAxes, s='a', fontsize=32, fontweight='bold', color='dimgrey')
+        ax.spines['right'].set_visible(False)
+    elif phase == 'ice':
+        # SW vs IWP
+        #ax.set_xlim(290,600)
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(np.ravel(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
+            np.ravel(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+        if p <= 0.01:
+            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                              s='r$^{2}$ = %s' % np.round(r2, decimals=2), fontweight='bold',
+                              transform=ax.transAxes, size=24, color='dimgrey')
+        else:
+            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top', s='r$^{2}$ = %s' % np.round(r2, decimals=2),
+                              transform=ax.transAxes, size=24,color='dimgrey')
+        ax.scatter(np.ravel(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))), np.ravel(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
+                             color='#f68080', s=50)
+        #ax.set_ylim(np.min(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=0)),
+        #                  np.max(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+        #ax.set_xlim(np.min(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
+        #                  np.max(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
+        ax.set_xlabel('Modelled SW$_{\downarrow}$ (W m$^{-2}$)', size=24, color='dimgrey', rotation=0,labelpad=10)
+        ax.set_ylabel('Modelled IWP \n(g m$^{-2}$)', size=24, color='dimgrey', rotation=0, labelpad=80)
+        lab = ax.text(0.1, 0.85, transform=ax.transAxes, s='b', fontsize=32, fontweight='bold', color='dimgrey')
+        ax.yaxis.tick_right()
+        [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
+        ax.yaxis.set_label_coords(1.3, 0.5)
+        ax.spines['left'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
+    #ax.axis('square')
+      # axs.set_adjustable('box')
+    ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey',pad=10)
+    [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
+    #[l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
+    plt.subplots_adjust(top=0.98, hspace=0.15, bottom=0.1, wspace=0.15, left=0.3, right=0.75)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/melt_v_cloud_RA1M_mod_shifted'+phase+'.png', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/melt_v_cloud_RA1M_mod_shifted'+phase+'.eps', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/melt_v_cloud_RA1M_mod_shifted'+phase+'.pdf', transparent=True)
+    plt.show()
+
+
 
 
 '''
