@@ -22,18 +22,29 @@ long_name_dict = {'sfc_P': 'surface_air_pressure',
 'QCL': 'mass_fraction_of_cloud_liquid_water_in_air',
 }
 
+# Define which HPC the code will run on, and set up file path accordingly
+host = 'BAS'
+
+if host == 'BAS' or host == 'bslcenh':
+	filepath = '/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/'
+elif host == 'JASMIN' or host == 'jasmin':
+	filepath = '/group_workspaces/jasmin4/bas_climate/users/ellgil82/OFCAP/'
+elif host == 'Monsoon' or host == 'monsoon':
+	filepath = '/projects/polar/elgil/OFCAP/'
+
 # Define function to load individual variables, amend the time dimension, and return a single cube.
 def load_var(var):
 	pa = []
 	pb = []
 	pf = []
-	for file in os.listdir('/projects/polar/elgil/OFCAP/'):
+	for file in os.listdir(filepath):
 	        if fnmatch.fnmatch(file, '*pa*.pp'):
 	            pa.append(file)
 	        elif fnmatch.fnmatch(file, '*pb*.pp'):
 	        	pb.append(file)
 	        elif fnmatch.fnmatch(file, '*pf*.pp'):
 	        	pf.append(file)
+	os.chdir(filepath)
 	try:
 		raw = iris.load_raw(pa, long_name_dict[var])
 	except iris.exceptions.ConstraintMismatchError:
@@ -54,17 +65,35 @@ def load_var(var):
 	return combo_cube
 
 # Load and save variables into files
-sfc_P = load_var('sfc_P')
-Ts = load_var('Ts')
-T_air = load_var('T_air')
-theta = load_var('theta')
-u_wind = load_var('u_wind')
-v_wind = load_var('v_wind')
+#sfc_P = load_var('sfc_P')
+try:
+	#print('Ts')
+	#Ts = load_var('Ts')
+	#iris.save((Ts), filepath+'/Ts.nc', netcdf_format='NETCDF3_CLASSIC')
+#except (AttributeError, ValueError):
+	T_air = load_var('T_air')
+	iris.save((T_air), filepath+'T_air.nc', netcdf_format='NETCDF3_CLASSIC')
+except (AttributeError, ValueError):
+	theta = load_var('theta')
+	iris.save((theta), filepath+'theta.nc', netcdf_format='NETCDF3_CLASSIC')
+except (AttributeError, ValueError):
+	q = load_var('q')
+	iris.save((q), filepath+'q.nc', netcdf_format='NETCDF3_CLASSIC')
+except (AttributeError, ValueError):
+	MSLP = load_var('MSLP')
+	iris.save((MSLP), filepath+'MSLP.nc', netcdf_format='NETCDF3_CLASSIC')
+except (AttributeError, ValueError):
+	u_wind = load_var('u_wind')
+	iris.save((u_wind), filepath+'u_wind.nc', netcdf_format = 'NETCDF3_CLASSIC')
+except (AttributeError, ValueError):
+	v_wind = load_var('v_wind')
+	iris.save((v_wind), filepath+'v_wind.nc', netcdf_format='NETCDF3_CLASSIC')
+except (AttributeError, ValueError):
+	print('Sozzzzz, nah')
+
 
 # Save as individual time series
-iris.save((sfc_P), '/projects/polar/elgil/OFCAP/sfc_P.nc', netcdf_format = 'NETCDF3_CLASSIC')
-iris.save((Ts), '/projects/polar/elgil/OFCAP/Ts.nc', netcdf_format = 'NETCDF3_CLASSIC')
-iris.save((T_air), '/projects/polar/elgil/OFCAP/T_air.nc', netcdf_format = 'NETCDF3_CLASSIC')
-iris.save((theta), '/projects/polar/elgil/OFCAP/theta.nc', netcdf_format = 'NETCDF3_CLASSIC')
-iris.save((u_wind), '/projects/polar/elgil/OFCAP/u_wind.nc', netcdf_format = 'NETCDF3_CLASSIC')
-iris.save((v_wind), '/projects/polar/elgil/OFCAP/v_wind.nc', netcdf_format = 'NETCDF3_CLASSIC')
+
+
+
+
