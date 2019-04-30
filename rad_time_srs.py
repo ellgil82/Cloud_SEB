@@ -54,7 +54,7 @@ def load_model(var):
     LW_down = iris.load_cube(pf, 'surface_downwelling_longwave_flux')
     LW_up = iris.load_cube(pf, 'upwelling_longwave_flux_in_air')
     SW_up = iris.load_cube(pf, 'upwelling_shortwave_flux_in_air')
-    if var == 'CASIM_24':
+    if var == 'CASIM_24' or var == 'CASIM_24_DeMott' or var == 'CASIM_f152_ice_off':
         c = iris.load(pf)
         SW_net = c[0]
     else:
@@ -73,7 +73,7 @@ def load_model(var):
         i.coord('time').convert_units('hours since 2011-01-18 00:00')
     LH = 0 - LH.data
     SH = 0 - SH.data
-    if var =='CASIM_24':
+    if var =='CASIM_24' or var == 'CASIM_24_DeMott' or var == 'CASIM_f152_ice_off':
         var_dict = {'real_lon': real_lon, 'real_lat': real_lat, 'SW_up': SW_up, 'SW_down': SW_down,
                     'LH': LH, 'SH': SH, 'LW_up': LW_up, 'LW_down': LW_down, 'LW_net': LW_net, 'SW_net': SW_net}
     else:
@@ -83,13 +83,15 @@ def load_model(var):
 
 
 #t24_vars = load_model('24')
-#RA1M_vars = load_model('RA1M_24')
+RA1M_vars = load_model('RA1M_24')
 RA1M_mod_vars = load_model('RA1M_mod_24')
-#RA1T_vars = load_model('RA1T_24')
-#RA1T_mod_vars = load_model('RA1T_mod_24')
+RA1T_vars = load_model('RA1T_24')
+RA1T_mod_vars = load_model('RA1T_mod_24')
 #fl_av_vars = load_model('fl_av')
-#CASIM_vars = load_model('CASIM_24')
-#model_runs = [RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, CASIM_vars]# fl_av_vars,
+DeMott_vars = load_model('CASIM_24_DeMott')
+Cooper_vars = load_model('CASIM_24')
+ice_off_vars = load_model('CASIM_f152_ice_off')
+model_runs = [RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, Cooper_vars,  ice_off_vars]# fl_av_vars,
 
 ## Load AWS metadata: data are formatted so that row [0] is the latitude, row [1] is the longitude, and each AWS is in a
 ## separate column, so it can be indexed in the pandas dataframe
@@ -161,11 +163,7 @@ def calc_SEB(run, times):
                           np.mean(run['SH'][:, (AWS14_lat-1):(AWS14_lat+1),(AWS14_lon-1):(AWS14_lon+1)], axis = (1,2)) + \
                            np.mean(run['LH'][:, (AWS14_lat-1):(AWS14_lat+1),(AWS14_lon-1):(AWS14_lon+1)], axis = (1,2))
     Time = run['LW_net'].coord('time')
-    # Time = Time + 0.5 # model data = hourly means, centred on the half-hour, so account for this
     Model_time = Time.units.num2date(Time.points)
-    #melt_masked_day = np.ma.masked_where(np.mean(run['Ts'][:,  (AWS14_lat-1):(AWS14_lat+1),(AWS14_lon-1):(AWS14_lon+1)].data, axis = (1,2)) < -0.025, Model_SEB_day_AWS14[::4])
-    #melt_masked_day = melt_masked_day.clip(min=0)
-    #melt_masked_flight = np.ma.masked_where(np.mean(run['Ts'][(times[0]/4):(times[-1]/4), (AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data, axis = (1,2))  < -0.025, Model_SEB_flight_AWS14[::4])
     melt_masked_flight = Model_SEB_flight_AWS14[::4]
     T_srs = np.mean(run['Ts'][:, (AWS14_lat-1):(AWS14_lat+1),(AWS14_lon-1):(AWS14_lon+1)].data, axis = (1,2))
     melt_masked_flight[T_srs[(times[0] / 4):(times[-1] / 4)] < -0.025] = 0
@@ -209,11 +207,14 @@ names = ['RA1M_mod', 'RA1M_mod']#['RA1M', 'RA1M_mod', 'RA1T', 'RA1T_mod', 'Coope
 model_runs = [RA1M_mod_vars, RA1M_mod_vars]
 
 for run, name in model_runs, names:
-Model_SEB_day_AWS14, Model_SEB_day_AWS15, Model_SEB_flight_AWS14, Model_SEB_flight_AWS15, melt_masked_day, melt_masked_flight, \
-obs_SEB_AWS14_flight,  obs_SEB_AWS14_day, obs_melt_AWS14_flight, obs_melt_AWS14_day = calc_SEB(run, times = (68,80))
-AWS14_bias, AWS15_bias = calc_bias(run, times = (68,80), day = False)
+    Model_SEB_day_AWS14, Model_SEB_day_AWS15, Model_SEB_flight_AWS14, Model_SEB_flight_AWS15, melt_masked_day, melt_masked_flight, \
+    obs_SEB_AWS14_flight,  obs_SEB_AWS14_day, obs_melt_AWS14_flight, obs_melt_AWS14_day = calc_SEB(run, times = (68,80))
+    AWS14_bias, AWS15_bias = calc_bias(run, times = (68,80), day = False)
     print '\n\n'+name + ' bias:\n\n'
     print AWS14_bias, AWS15_bias
+
+
+
 
 ## -------------------------------------------------- PLOTTING ------------------------------------------------------ ##
 ## Set up plotting options
@@ -363,8 +364,8 @@ def total_SEB(run):
 total_SEB(RA1M_mod_vars)
 
 def rad_time_srs():
-    model_runs = [RA1M_mod_vars]#[RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars]#, CASIM_vars]#
-    fig, ax = plt.subplots(1,2, figsize = (18,8))#(len(model_runs),2, sharex='col', figsize=(16,len(model_runs*5)+3))###, squeeze=False)#
+    model_runs = [RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, Cooper_vars, DeMott_vars, ice_off_vars, ]#[RA1M_mod_vars]#
+    fig, ax = plt.subplots(len(model_runs),2, sharex='col', figsize=(16,len(model_runs*5)+3), squeeze=False)#(18,8))#
     ax = ax.flatten()
     ax2 = np.empty_like(ax)
     for axs in ax:
@@ -380,7 +381,7 @@ def rad_time_srs():
     def my_fmt(x,p):
         return {0}.format(x) + ':00'
     plot = 0
-    lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i', 9: 'j', 10: 'k', 11: 'l' }
+    lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i', 9: 'j', 10: 'k', 11: 'l', 12: 'm', 13: 'n', 14: 'o'}
     for run in model_runs:
         AWS14_flight_mean, AWS14_day_mean, AWS14_Jan = load_AWS('AWS14')
         AWS15_flight_mean, AWS15_day_mean, AWS15_Jan = load_AWS('AWS15')
@@ -449,9 +450,9 @@ def rad_time_srs():
     fig.text(0.5, 0.04, 'Time (hours)', fontsize=24, fontweight = 'bold', ha = 'center', va = 'center', color = 'dimgrey')
     fig.text(0.08, 0.55, 'Downwelling \nshortwave \nflux \n(W m$^{-2}$)', fontsize=30, ha= 'center', va='center', rotation = 0, color = 'dimgrey')
     fig.text(0.92, 0.55, 'Downwelling \nlongwave \nflux \n(W m$^{-2}$)', fontsize=30, ha='center', va='center', color = 'dimgrey', rotation=0)
-    plt.subplots_adjust(left=0.22, bottom=0.35, right=0.78, top=0.97, wspace=0.15, hspace=0.15)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Radiation/vn11_SEB_time_srs_LWd_SWd_RA1M_v_RA1M_mod_shifted_AWS14.png', transparent = True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Radiation/vn11_SEB_time_srs_LWd_SWd_RA1M_v_RA1M_mod_shifted_AWS14.eps', transparent = True)
+    plt.subplots_adjust(left=0.22, bottom=0.12, right=0.78, top=0.97, wspace=0.15, hspace=0.15)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Radiation/vn11_SEB_time_srs_LWd_SWd_all_runs_shifted_AWS14.png', transparent = True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Radiation/vn11_SEB_time_srs_LWd_SWd_all_runs_shifted_AWS14.eps', transparent = True)
     plt.show()
 
 rad_time_srs()
