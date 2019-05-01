@@ -76,24 +76,24 @@ def load_model(config, flight_date, times): #times should be a range in the form
     print('\ncreating vertical profiles geez...')
     box_QCF = ice_mass_frac[times[0]:times[1], :40, 133:207, 188:213].data
     box_QCL = liq_mass_frac[times[0]:times[1], :40, 133:207, 188:213].data
-    box_QCL[box_QCL <= 0.0000015] = np.nan
-    box_QCF[box_QCF <= 0.0001 ] = np.nan
+    box_QCL[box_QCL <= 0.0000015] = np.nan # c.f. widely used threshold (e.g Cohen & Craig, 2006): > 0.005 g kg-1 for mid-lat clouds
+    box_QCF[box_QCF <= 0.0001 ] = np.nan # c.f. Gettelman et al. (2010) threshold: > 0.00005 g kg-1 for mid-lat clouds
+    box_mean_QCF = np.nan_to_num(np.nanmean(box_QCF, axis = (0,2,3)))
+    box_mean_QCL = np.nan_to_num(np.nanmean(box_QCL, axis=(0, 2, 3)))
     AWS14_QCF = ice_mass_frac[times[0]:times[1], :40, 199:201, 199:201].data
     AWS14_QCL = liq_mass_frac[times[0]:times[1], :40, 199:201, 199:201].data
-    AWS14_QCL[AWS14_QCL <= 0.0001 ] = np.nan
-    AWS14_QCF[AWS14_QCF <= 0.0000015] = np.nan
+    AWS14_QCF[AWS14_QCF <= 0.0001 ] = np.nan
+    AWS14_QCL[AWS14_QCL <= 0.0000015] = np.nan
     AWS15_QCF = ice_mass_frac[times[0]:times[1], :40,  161:163, 182:184].data
     AWS15_QCL = liq_mass_frac[times[0]:times[1], :40,  161:163, 182:184].data
-    AWS15_QCL[AWS15_QCL <= 0.0001 ] = np.nan
-    AWS15_QCF[AWS15_QCF <= 0.0000015] = np.nan
+    AWS15_QCL[AWS15_QCL <= 0.0000015] = np.nan
+    AWS15_QCF[AWS15_QCF <= 0.0001 ] = np.nan
     box_mean_IWP = np.mean(IWP[times[0]:times[1], 133:207, 188:213].data)#, axis = (0,1,2))
     box_mean_LWP = np.mean(LWP[times[0]:times[1], 133:207, 188:213].data)#, axis =(0,1,2))
-    mean_QCF = np.nanmean(box_QCF, axis = (0,2,3))
-    mean_QCL = np.nanmean(box_QCL, axis=(0, 2, 3))
-    AWS14_mean_QCF = np.nanmean(AWS14_QCF, axis=(0, 2, 3))
-    AWS14_mean_QCL = np.nanmean(AWS14_QCL, axis=(0, 2, 3))
-    AWS15_mean_QCF = np.nanmean(AWS15_QCF, axis=(0, 2, 3))
-    AWS15_mean_QCL = np.nanmean(AWS15_QCL, axis=(0, 2, 3))
+    AWS14_mean_QCF = np.nan_to_num(np.nanmean(AWS14_QCF, axis=(0, 2, 3)))
+    AWS14_mean_QCL = np.nan_to_num(np.nanmean(AWS14_QCL, axis=(0, 2, 3)))
+    AWS15_mean_QCF = np.nan_to_num(np.nanmean(AWS15_QCF, axis=(0, 2, 3)))
+    AWS15_mean_QCL = np.nan_to_num(np.nanmean(AWS15_QCL, axis=(0, 2, 3)))
     # Find max and min values at each model level
     time_mean_QCF = np.nanmean(box_QCF, axis=0)
     array = pd.DataFrame()
@@ -126,7 +126,7 @@ def load_model(config, flight_date, times): #times should be a range in the form
     #liq_PDF = mean_liq.plot.density(color = 'k', linewidth = 1.5)
     #ice_PDF = mean_ice.plot.density(linestyle = '--', linewidth=1.5, color='k')
     altitude = ice_mass_frac.coord('level_height').points[:40]/1000
-    var_dict = {'real_lon': real_lon, 'real_lat':real_lat,   'lsm': lsm, 'orog': orog,  'IWP': IWP, 'LWP':LWP,'mean_QCF': mean_QCF, 'mean_QCL': mean_QCL, 'altitude': altitude,
+    var_dict = {'real_lon': real_lon, 'real_lat':real_lat,   'lsm': lsm, 'orog': orog,  'IWP': IWP, 'LWP':LWP,'mean_QCF': box_mean_QCF, 'mean_QCL': box_mean_QCL, 'altitude': altitude,
                  'AWS14_mean_QCF': AWS14_mean_QCF, 'AWS14_mean_QCL': AWS14_mean_QCL,'ice_5': ice_5, 'ice_95': ice_95, 'liq_5': liq_5, 'liq_95': liq_95, 'min_QCF': min_QCF,
                 'max_QCF': max_QCF, 'min_QCL': min_QCL,'AWS15_mean_QCF': AWS15_mean_QCF, 'AWS15_mean_QCL': AWS15_mean_QCL, 'box_QCF': box_QCF, 'box_QCL': box_QCL}#, 'cl_A': cl_A_frac,
 #                'ice_cl': ice_cl_frac, 'liq_cl': liq_cl_frac} #cl_A': cl_A,'qc': qc,'box_mean_IWP': box_mean_IWP,'box_mean_LWP': box_mean_LWP,

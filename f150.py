@@ -93,7 +93,7 @@ def load_model(config, flight_date, times): #times should be a range in the form
         i.convert_units('g kg-1')
     for j in [LWP, IWP,]: #cl_A
         real_lon, real_lat = rotate_data(j, 1, 2)
-        j.convert_units('g m-2')
+        #j.convert_units('g m-2')
     for k in [lsm, orog]:
         real_lon, real_lat = rotate_data(k, 0, 1)
     # Convert times to useful ones
@@ -109,15 +109,16 @@ def load_model(config, flight_date, times): #times should be a range in the form
     print('\ncreating transects geez...')
     box_QCF = ice_mass_frac[times[0]:times[1], :40, 115:150, 130:185].data
     box_QCL = liq_mass_frac[times[0]:times[1], :40, 115:150, 130:185].data
+    box_QCL[box_QCL <= 0.0000015] = np.nan
+    box_QCF[box_QCF <= 0.0001] = np.nan
     transect_box_QCF = ice_mass_frac[times[0]:times[1], :40, 127:137, 130:185].data
     transect_box_QCL = liq_mass_frac[times[0]:times[1], :40, 127:137, 130:185].data
-    # mask grid cells where no cloud is present so as not to bias the mean according to mass fraction threshold given
-    # in Gettelman et al. (2010) JGR 115 (D18) 1-19. doi:10.1029/2009JD013797
-    #QCF_transect = np.ma.masked_where(np.mean(ice_mass_frac[:,:,127:137, 130:185 ].data, axis = (0,1,2)),
-    #                                  np.mean(ice_mass_frac[:,:,127:137, 130:185 ].data, axis = (0,1,2)) <= 0.005)
-    #QCL_transect = np.ma.masked_where(np.mean(liq_mass_frac[:, :, 127:137, 130:185].data, axis=(0, 1, 2)),
-    #                                  np.mean(liq_mass_frac[:, :, 127:137, 130:185].data, axis=(0, 1, 2)) <= 0.005)
-    #transect_box_T = T[times[0]:times[1], :40, 127:137, 130:185].data
+    transect_box_QCL[transect_box_QCL <= 0.0000015] = np.nan
+    transect_box_QCF[transect_box_QCF <= 0.0001] = np.nan
+    transect_box_QCF = np.nan_to_num(np.nanmean(transect_box_QCF))
+    transect_box_QCL = np.nan_to_num(np.nanmean(transect_box_QCL))
+    # Calculate in-cloud values only for mean, defined according to minimum in-cloud mass fraction observed during all
+    # flights (where in-cloud conditions are diagnosed using number concentration threshold of Lachlan-Cope et al. (2016))
     box_mean_IWP = np.mean(IWP[times[0]:times[1], 115:150, 130:185].data)#, axis = (0,1,2))
     box_mean_LWP = np.mean(LWP[times[0]:times[1], 115:150, 130:185].data)#, axis =(0,1,2))
     IWP_transect = np.mean(IWP[:, 127:137, 130:185 ].data, axis = (0,1))
@@ -161,20 +162,23 @@ def load_model(config, flight_date, times): #times should be a range in the form
 RA1M_mod_vars = load_model(config = 'RA1M_mods_f150', flight_date = '20110115T0000', times = (59,68))
 Cooper_vars = load_model(config = 'Cooper', flight_date = '20110115T0000', times = (59,68))
 DeMott_vars = load_model(config = 'f150_DeMott', flight_date = '20110115T0000',  times = (59,68))
-#DeMott_2015_vars = load_model(config = 'DeMott_2015', flight_date = '20110115T0000',  times = (47,95))
+DeMott_2015_vars = load_model(config = 'DeMott_2015', flight_date = '20110115T0000',  times = (59,68))
 ice_off_vars = load_model(config = 'ice_off', flight_date = '20110115T0000', times  = (59,68))
+RHcrit_vars = load_model(config = 'RHcrit_0p85', flight_date = '20110115T0000', times  = (59,68))
 
-model_runs = [RA1M_mod_vars, Cooper_vars, DeMott_vars, ice_off_vars]#, CASIM_vars fl_av_vars, ]
+model_runs = [RA1M_mod_vars, Cooper_vars, DeMott_vars, DeMott_2015_vars,  ice_off_vars, RHcrit_vars]#, CASIM_vars fl_av_vars, ]
 
 #Plot vertical profile
 def plot_struc():
-    fig, ax = plt.subplots(2,2, figsize = (10,10))
+    fig, ax = plt.subplots(3,2, figsize = (10,14))
     ax = ax.flatten()
     plot = 0
     cbAx = fig.add_axes([0.25, 0.9, 0.5, 0.03])
-    for i in model_runs:
+    titles = ['RA1M_mod', 'Cooper (1986)', 'DeMott (2010)', 'DeMott (2015)','ice off', 'RH$_{crit}$ = 0.85']
+    for i, j in zip(model_runs, range(6)):
         c = ax[plot].contourf(np.mean(i['QCL_transect'], axis = (0,2)), vmin = 0., vmax = 0.2)
         ax[plot].axis('off')
+        ax[plot].set_title(titles[j], fontname='Helvetica', color='dimgrey', fontsize=24, pad=10)
         plot = plot+1
     cb = plt.colorbar(c, cax = cbAx, orientation = 'horizontal', ticks = [0., 0.2])
     cbAx.set_xlabel('Liquid water contents (g kg$^{-1}$)', fontname='Helvetica', color='dimgrey', fontsize=24, labelpad=10)
@@ -187,21 +191,12 @@ def plot_struc():
     #labels[-1] = '0.1'
     #labels[0] = '0'
     cb.ax.set_xticks([0, 0.2])
-    plt.subplots_adjust(top = 0.8, bottom = 0.05, hspace = 0.1, wspace=0.1)
+    plt.subplots_adjust(top = 0.8, bottom = 0.05, hspace = 0.15, wspace=0.1)
     plt.savefig('/users/ellgil82/figures/Cloud data/f150/QCL_transects.png')
     plt.savefig('/users/ellgil82/figures/Cloud data/f150/QCL_transects.eps')
     plt.show()
 
 plot_struc()
-
-fig, ax = plt.subplots(2,2)
-ax = ax.flatten()
-plot = 0
-for i in model_runs:
-    c = ax[plot].plot(np.mean(i['QCL_transect'], axis = (1,2,3)))
-    plot = plot+1
-
-plt.show()
 
 
 def load_SEB(config, flight_date):
@@ -253,7 +248,7 @@ def load_SEB(config, flight_date):
 #Cooper_SEB = load_SEB(config = 'Cooper', flight_date = '20110115T0000')
 #DeMott_SEB = load_SEB(config = 'f150_DeMott', flight_date = '20110115T0000')
 #DeMott_2015_SEB = load_model(config = 'DeMott_2015', flight_date = '20110115T0000')
-ice_off_SEB = load_SEB(config = 'ice_off', flight_date = '20110115T0000')
+#ice_off_SEB = load_SEB(config = 'ice_off', flight_date = '20110115T0000')
 
 def load_obs():
     ## ----------------------------------------------- SET UP VARIABLES --------------------------------------------------##
@@ -708,6 +703,7 @@ def mfrac_transect():
     mean_LWC = ax2.plot(lon_bins, LWC_transect1, linewidth = 2, color = '#1b9e77', label = 'Mean liquid')
     scatter_LWC = ax3.scatter(liq_lons_leg1, LWC_leg1, marker = 's', color = '#1b9e77', label = 'All liquid', alpha=0.65)
     RA1M_LWC = ax2.plot(lon_bins, np.mean(RA1M_mod_vars['QCL_transect'], axis = (0,1,2)), lw = 2, color='#1f78b4', label = 'RA1M_mod')
+    RHcrit_LWC = ax2.plot(lon_bins, np.mean(RHcrit_vars['QCL_transect'], axis = (0,1,2)), lw = 2, color='darkred', label = 'RHcrit = 0.85')
     DeMott_LWC = ax2.plot(lon_bins, np.mean(DeMott_vars['QCL_transect'], axis = (0,1,2)), lw=2, color='#EA580F', label='DeMott')
     Cooper_LWC = ax2.plot(lon_bins, np.mean(Cooper_vars['QCL_transect'], axis = (0,1,2)), lw=2, color='#5D13E8', label='Cooper')
     ice_off_LWC = ax2.plot(lon_bins, np.mean(ice_off_vars['QCL_transect'], axis = (0,1,2)), lw=2, color='#DC143C', label='no ice')
@@ -738,7 +734,7 @@ def mfrac_transect():
     #lgd = plt.legend([ mean_obs, RA1M_LWC[0], DeMott_LWC[0], Cooper_LWC[0]],
     #                 [ 'Observed transect mean', 'RA1M_mod', 'DeMott',
     #                  'Cooper'], markerscale=2, bbox_to_anchor=(1.25, 1.1), loc='best', fontsize=20)
-    lgd = plt.legend([scatter_LWC, mean_LWC[0], mean_obs, RA1M_LWC[0], DeMott_LWC[0], Cooper_LWC[0], ice_off_LWC[0]], ['All observed liquid', 'Mean observed liquid', 'Observed transect mean', 'RA1M_mod', 'DeMott', 'Cooper', 'no ice'], markerscale=2, bbox_to_anchor = (1.25, 1.1), loc='best', fontsize=20)
+    lgd = plt.legend([scatter_LWC, mean_LWC[0], mean_obs, RA1M_LWC[0], DeMott_LWC[0], Cooper_LWC[0], ice_off_LWC[0], RHcrit_LWC[0]], ['All observed liquid', 'Mean observed liquid', 'Observed transect mean', 'RA1M_mod', 'DeMott', 'Cooper', 'no ice', 'RH$_{crit}$ = 0.85'], markerscale=2, bbox_to_anchor = (1.25, 1.1), loc='best', fontsize=20)
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey')
         lgd.get_frame().set_linewidth(0.0)
