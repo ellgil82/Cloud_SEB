@@ -121,7 +121,7 @@ def load_t_srs(var, domain):
             HS_srs = np.ma.masked_array(daymn_HS[:-1, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, daymn_HS[:-1, 0, :, :].shape)).mean(axis=(1, 2))
             Etot_srs = np.ma.masked_array(Etot[:-1, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, Etot[:-1, 0, :, :].shape)).mean(axis=(1, 2))
             Ts_srs = np.ma.masked_array(Ts[:-1, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, Ts[:-1, 0, :, :].shape)).mean(axis=(1, 2))
-            melt_srs = Etot_srs
+            melt_srs = np.copy(Etot_srs)
             melt_srs[Ts_srs < -0.025] = 0
         elif domain == 'AWS 14' or domain == 'AWS14':
             SWnet_srs = np.mean(daymn_SWnet[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
@@ -134,7 +134,7 @@ def load_t_srs(var, domain):
             HS_srs = np.mean(daymn_HS[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
             Etot_srs = np.mean(Etot[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
             Ts_srs = np.mean(Ts[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
-            melt_srs = Etot_srs
+            melt_srs = np.copy(Etot_srs)
             melt_srs[Ts_srs < -0.025] = 0
         elif domain == 'AWS 15' or domain == 'AWS15':
             SWnet_srs = np.mean(daymn_SWnet[:-1, 0,161:163, 182:184].data, axis=(1, 2))
@@ -147,7 +147,7 @@ def load_t_srs(var, domain):
             HS_srs = np.mean(daymn_HS[:-1, 0,161:163, 182:184].data, axis=(1, 2))
             Etot_srs = np.mean(Etot[:-1, 0, 161:163, 182:184].data, axis=(1, 2))
             Ts_srs = np.mean(Ts[:-1, 0, 161:163, 182:184].data, axis=(1, 2))
-            melt_srs = Etot_srs
+            melt_srs = np.copy(Etot_srs)
             melt_srs[Ts_srs < -0.025] = 0
         HL_srs = 0 - HL_srs
         HS_srs = 0 - HS_srs
@@ -535,7 +535,7 @@ def calc_bias():
     # Forecast error
     AWS_var = load_AWS('AWS14_SEB_2009-2017_norp')
     AWS_var = AWS_var[12:-1]
-    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/netcdfs/')
+    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/BL_run/')
     SEB_dict = load_t_srs(var='SEB', domain='AWS14')
     met_dict = load_t_srs(var = 'met', domain = 'AWS14')
     surf_met_obs = [AWS_var['Tsobs'], AWS_var['Tair_2m'], AWS_var['qair_2m'], AWS_var['FF_10m'], AWS_var['SWin_corr'], AWS_var['LWin'], AWS_var['SWnet_corr'], AWS_var['LWnet_corr'], AWS_var['Hsen'], AWS_var['Hlat'], AWS_var['E'], AWS_var['melt_energy']]#, AWS_var['melt_energy']]
@@ -554,7 +554,8 @@ def calc_bias():
         bias.append(mean_mod[i] - mean_obs[i])
         slope, intercept, r2, p, sterr = scipy.stats.linregress(surf_met_obs[i], surf_mod[i])
         r2s.append(r2)
-        rmse = mean_squared_error(y_true = surf_met_obs[i], y_pred = surf_mod[i])
+        mse = mean_squared_error(y_true = surf_met_obs[i], y_pred = surf_mod[i])
+        rmse = np.sqrt(mse)
         rmses.append(rmse)
         idx = ['Ts', 'Tair', 'RH', 'wind', 'SWd', 'LWd', 'SWn', 'LWn', 'SH', 'LH', 'total', 'melt']#, 'melt forced']
     df = pd.DataFrame(index = idx)
@@ -569,7 +570,7 @@ def calc_bias():
         print(idx[i])
         print('\nr2 = %s\n' % r2)
     print('RMSE/bias = \n\n\n')
-    df.to_csv('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/OFCAP_bias_and_RMSE.csv')
+    df.to_csv('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/OFCAP_BL_bias_and_RMSE.csv')
     print(df)
 
 calc_bias()
@@ -582,21 +583,39 @@ BL_SEB_dict = load_t_srs(var = 'SEB', domain = 'AWS14')
 BL_mod = [BL_SEB_dict['SWdown_srs'], BL_SEB_dict['LWdown_srs'], BL_SEB_dict['SWnet_srs'], BL_SEB_dict['LWnet_srs'], BL_SEB_dict['HS_srs'], BL_SEB_dict['HL_srs'], BL_SEB_dict['Etot_srs'], BL_SEB_dict['melt_srs']]
 ctrl_mod = [SEB_dict['SWdown_srs'], SEB_dict['LWdown_srs'], SEB_dict['SWnet_srs'], SEB_dict['LWnet_srs'], SEB_dict['HS_srs'], SEB_dict['HL_srs'], SEB_dict['Etot_srs'], SEB_dict['melt_srs']]
 
-fig, ax = plt.subplots(4,2)
-ax = ax.flatten()
-for i in np.arange(len(BL_mod)):
-    #ax[i].plot(AWS_var['datetime'], obs[i], color = 'k', lw = 2, label = 'Observed')
-    ax[i].plot(BL_SEB_dict['Model_time'], BL_mod[i], color = '#33a02c',  linestyle = '--', lw = 2, label = 'BL run')
-    ax[i].plot(SEB_dict['Model_time'], ctrl_mod[i], color = '#1f78b4',  linestyle = '--', lw = 2, label = 'ctrl run')
+def plot_BL_v_ctrl():
+    fig, ax = plt.subplots(4,2, sharex = True, figsize = (16,24))
+    ax = ax.flatten()
+    lab_dict = ['SW$_{\downarrow}$','LW$_{\downarrow}$','SW$_{net}$','LW$_{net}$','H$_{S}$','H$_{L}$','E$_{tot}$','E$_{melt}$']
+    for i in np.arange(len(BL_mod)):
+        #ax[i].plot(AWS_var['datetime'], obs[i], color = 'k', lw = 2, label = 'Observed')
+        ax[i].plot(BL_SEB_dict['Model_time'], BL_mod[i], color = '#33a02c',  linestyle = '--', lw = 2, label = 'BL run')
+        ax[i].plot(SEB_dict['Model_time'], ctrl_mod[i], color = '#1f78b4',  linestyle = '--', lw = 2, label = 'ctrl run')
+        ax[i].set_xlim(BL_SEB_dict['Model_time'][0], BL_SEB_dict['Model_time'][-1])
+        ax[i].text(0.45, 1.0, transform = ax[i].transAxes, s= lab_dict[i], color = 'dimgrey', fontsize = 24)
+    lgd = plt.legend(fontsize=20, markerscale=2)
+    for ln in lgd.get_texts():
+        plt.setp(ln, color='dimgrey')
+    lgd.get_frame().set_linewidth(0.0)
+    for axs in ax:
+        axs.spines['top'].set_visible(False)
+        plt.setp(axs.spines.values(), linewidth=2, color='dimgrey', )
+        # axs.axis('square')
+        axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+        #[l.set_visible(False) for (w, l) in enumerate(axs.yaxis.get_ticklabels()) if w % 2 != 0]
+        #[l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
+    plt.subplots_adjust(top = 0.95, hspace = 0.15, bottom = 0.05, wspace = 0.25, left = 0.05, right = 0.98)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/BL_v_ctrl_SEB.png', transparent = True)
+    plt.show()
 
-plt.legend()
-plt.show()
+plot_BL_v_ctrl()
 
 
 def melt_plot():
     fig, ax = plt.subplots(figsize = (18,8))
     ax2 = ax.twiny()
-    ax.plot(SEB_dict['Model_time'], SEB_dict['melt_srs'][:-1], lw = 2, color = '#f68080', label = 'modelled melt flux', zorder = 1)
+    ax.plot(SEB_dict['Model_time'], SEB_dict['melt_srs'], lw = 2, color = '#1f78b4', label = 'ctrl run', zorder = 1)
+    ax.plot(BL_SEB_dict['Model_time'], BL_SEB_dict['melt_srs'], lw=2, color='#33a02c', label='BL run',zorder=1)
     ax2.plot(AWS14_SEB['datetime'], AWS14_SEB['melt_energy'], lw=2, color='k', label='observed melt flux', zorder = 2)
     ax2.set_xlim(AWS14_SEB['datetime'][0], AWS14_SEB['datetime'][-1])
     ax.set_xlim(SEB_dict['Model_time'][0], SEB_dict['Model_time'][-1])
@@ -614,8 +633,9 @@ def melt_plot():
     ax.xaxis.set_major_formatter(dayfmt)
     #Legend
     lns = [Line2D([0],[0], color='k', linewidth = 2.5),
-           Line2D([0],[0], color =  '#f68080', linewidth = 2.5)]
-    labs = ['Observed melt flux', 'Modelled melt flux']
+           Line2D([0],[0], color =  '#1f78b4', linewidth = 2.5),
+           Line2D([0],[0], color =  '#33a02c', linewidth = 2.5)]
+    labs = ['Observed melt flux', 'ctrl run', 'BL run']
     lgd = ax2.legend(lns, labs, bbox_to_anchor=(0.55, 1.1), loc=2, fontsize=28)
     frame = lgd.get_frame()
     frame.set_facecolor('white')
@@ -624,24 +644,22 @@ def melt_plot():
     lgd.get_frame().set_linewidth(0.0)
     plt.subplots_adjust(left = 0.22, right = 0.95)
     if host == 'bsl':
-        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_melt.png', transparent = True)
-        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_melt.eps', transparent=True)
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_melt_BL_v_ctrl.png', transparent = True)
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_melt_BL_v_ctrl.eps', transparent=True)
     plt.show()
 
-#melt_plot()
+melt_plot()
 
-def flux_plot():
+def flux_plot(flux, AWS_flux):
     fig, ax = plt.subplots(figsize = (18,8), sharex = True)
-    ax2 = ax.twiny()
-    ax.plot(SEB_dict['Model_time'], SEB_dict['HL_srs'][:-1], lw = 2, color = '#33a02c',  zorder = 1)
-    ax2.plot(AWS14_SEB['datetime'], AWS14_SEB['Hlat'], lw=2, color='k', zorder = 2)
-    ax2.set_xlim(AWS14_SEB['datetime'][0], AWS14_SEB['datetime'][-1])
-    ax.set_xlim(SEB_dict['Model_time'][0], SEB_dict['Model_time'][-1])
+    ax.plot(BL_SEB_dict['Model_time'], BL_mod[flux], color='#33a02c',  lw=2, label='BL run') #linestyle='--',
+    ax.plot(SEB_dict['Model_time'], ctrl_mod[flux], color='#1f78b4',  lw=2, label='ctrl run') #linestyle='--',
+    ax.plot(AWS14_SEB['datetime'], AWS14_SEB[AWS_flux], lw=2, color='k', zorder = 2)
+    ax.set_xlim(AWS14_SEB['datetime'][0], AWS14_SEB['datetime'][-1])
     days = mdates.DayLocator(interval=1)
     dayfmt = mdates.DateFormatter('%d %b')
-    ax.set_ylim(-50,50)
+    #ax.set_ylim(-50,50)
     ax.set_ylabel('Energy flux\n(W m$^{-2}$)', rotation = 0, fontsize = 36, labelpad = 100, color = 'dimgrey')
-    ax2.axis('off')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
@@ -651,9 +669,10 @@ def flux_plot():
     ax.xaxis.set_major_formatter(dayfmt)
     #Legend
     lns = [Line2D([0],[0], color='k', linewidth = 2.5),
+           Line2D([0], [0], color='#1f78b4', linewidth=2.5),
            Line2D([0],[0], color =  '#33a02c', linewidth = 2.5)]
-    labs = ['Observed H$_{L}$', 'Modelled H$_{L}$']# ['Observed LW$_{\downarrow}$', 'Modelled LW$_{\downarrow}$']
-    lgd = ax2.legend(lns, labs, bbox_to_anchor=(0.65, 1.1), loc=2, fontsize=28)
+    labs = ['Observed flux', 'ctrl run', 'BL run']# ['Observed LW$_{\downarrow}$', 'Modelled LW$_{\downarrow}$']
+    lgd = ax.legend(lns, labs, bbox_to_anchor=(0.65, 1.1), loc=2, fontsize=28)
     frame = lgd.get_frame()
     frame.set_facecolor('white')
     for ln in lgd.get_texts():
@@ -661,11 +680,19 @@ def flux_plot():
     lgd.get_frame().set_linewidth(0.0)
     plt.subplots_adjust(left = 0.22, right = 0.95)
     if host == 'bsl':
-        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_HL.png', transparent = True)
-        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_HL.eps', transparent=True)
-    plt.show()
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_'+AWS_flux_names[j]+'.png', transparent = True)
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_'+AWS_flux_names[j]+'.eps', transparent=True)
+    #plt.show()
 
-#flux_plot()
+
+AWS_flux_names = ['SWin_corr','LWin','SWnet_corr','LWnet_corr','Hsen','Hlat','E','melt_energy']
+mod_flux_names = ['SWdown_srs','LWdown_srs','SWnet_srs','LWnet_srs','HS_srs','HL_srs','Etot_srs','melt_srs']
+
+for j in range(len(mod_flux_names)):
+    flux_plot(flux = j, AWS_flux = AWS_flux_names[j])
+
+
+
 
 
 def full_SEB():
