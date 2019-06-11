@@ -31,7 +31,7 @@ import datetime
 if host == 'jasmin':
     os.chdir('/group_workspaces/jasmin4/bas_climate/users/ellgil82/OFCAP/netcdfs/')
 elif host == 'bsl':
-    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/netcdfs/')
+    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/BL_run/')
 
 ## Set up plotting options
 rcParams['font.family'] = 'sans-serif'
@@ -47,12 +47,12 @@ def load_t_srs(var, domain):
         real_lat, real_lon = rotate_data(i, 0,1)
     if var == 'met':
         # Load daily mean files in
-        Tair = iris.load_cube('../netcdfs/OFCAP_Tair.nc', 'air_temperature')
-        Ts = iris.load_cube('../netcdfs/OFCAP_Ts.nc', 'surface_temperature')
-        q = iris.load_cube('../netcdfs/OFCAP_q.nc', 'specific_humidity') #?
-        MSLP = iris.load_cube('../netcdfs/OFCAP_MSLP.nc', 'air_pressure_at_sea_level')
-        u = iris.load_cube('../netcdfs/OFCAP_u_wind.nc', 'eastward_wind')
-        v = iris.load_cube('../netcdfs/OFCAP_v_wind.nc', 'northward_wind')
+        Tair = iris.load_cube('OFCAP_Tair.nc', 'air_temperature')
+        Ts = iris.load_cube('OFCAP_Ts.nc', 'surface_temperature')
+        q = iris.load_cube('OFCAP_q.nc', 'specific_humidity') #?
+        MSLP = iris.load_cube('OFCAP_MSLP.nc', 'air_pressure_at_sea_level')
+        u = iris.load_cube('OFCAP_u_wind.nc', 'eastward_wind')
+        v = iris.load_cube('OFCAP_v_wind.nc', 'northward_wind')
         v = v[:,:, 1:, :]
         Model_time = u.coord('t')[:-1]
         Model_time = Model_time.units.num2date(Model_time.points)
@@ -157,9 +157,13 @@ def load_t_srs(var, domain):
     return var_dict
 
 
+os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/BL_run/')
+#BL_SEB_dict = load_t_srs(var = 'SEB', domain = 'AWS14')
+#BL_met_dict = load_t_srs(var = 'met', domain = 'AWS14')
 
-SEB_dict = load_t_srs(var = 'SEB', domain = 'AWS14')
-#met_dict = load_t_srs(var = 'met', domain = 'AWS14')
+os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/netcdfs/')
+#ctrl_SEB_dict = load_t_srs(var = 'SEB', domain = 'AWS14')
+#ctrl_met_dict = load_t_srs(var = 'met', domain = 'AWS14')
 
 def time_srs_plot():
     fig, ax = plt.subplots(figsize = (30,14))
@@ -172,7 +176,7 @@ def time_srs_plot():
 #mean_obs = pd.read_csv('/data/mac/ellgil82/cloud_data/flights/OFCAP_flight_means.csv')
 
 def plot_profile(var, domain, plot_obs):
-    var_dict = {'theta': 'daymn_theta.nc', 'QCL': '../netcdfs/OFCAP_QCL.nc', 'QCF': '../netcdfs/OFCAP_QCF.nc', 'q': 'daymn_q.nc', 'Tair': 'daymn_Tair.nc' }
+    var_dict = {'theta': 'OFCAP_theta.nc', 'QCL': 'OFCAP_QCL.nc', 'QCF': 'OFCAP_QCF.nc', 'q': 'OFCAP_q.nc', 'Tair': 'OFCAP_Tair.nc' }
     cubes = iris.load(var_dict[var])
     profile_var = cubes[0]
     orog = iris.load_cube('OFCAP_orog.nc', 'surface_altitude')
@@ -196,9 +200,9 @@ def plot_profile(var, domain, plot_obs):
         profile_var.add_aux_factory(factory)  # this should produce a 'derived coordinate', 'altitude' (test this with >>> print theta)
         altitude = profile_var.coord('altitude').points[:, 0,0]
     if var == 'QCF':
-        profile_var.data[profile_var.data <= 0.0001] = 0 # minimum observed in-cloud mass fraction threshold
+        profile_var.data[profile_var.data <= 0.0001] = np.nan # minimum observed in-cloud mass fraction threshold
     elif var == 'QCL':
-        profile_var.data[profile_var.data <= 0.0000015] = 0
+        profile_var.data[profile_var.data <= 0.0000015] = np.nan
     if domain == 'ice shelf' or domain == 'Larsen C':
         # Create Larsen mask
         Larsen_mask = np.zeros((400, 400))
@@ -206,11 +210,11 @@ def plot_profile(var, domain, plot_obs):
         Larsen_mask[35:260, 90:230] = lsm_subset
         Larsen_mask[orog.data > 25] = 0
         Larsen_mask = np.logical_not(Larsen_mask)
-        profile_mn = np.ma.masked_array(data = profile_var.data, mask = np.broadcast_to(Larsen_mask,profile_var.shape)).mean(axis = (0,2, 3))
+        profile_mn =  np.nan_to_num(np.nanmean(np.ma.masked_array(data = profile_var.data, mask =(np.broadcast_to(Larsen_mask,profile_var.shape))),axis = (0,2, 3)))
     elif domain == 'AWS 14' or domain == 'AWS14':
-        profile_mn = np.mean(profile_var[:, :, 199:201, 199:201].data, axis=(0, 2, 3))
+        profile_mn = np.nan_to_num(np.nanmean(profile_var[:, :, 199:201, 199:201].data, axis=(0, 2, 3)))
     elif domain == 'AWS 15' or domain == 'AWS15':
-        profile_mn = np.mean(profile_var[:, :, 161:163, 182:184].data, axis=(0, 2, 3))
+        profile_mn = np.nan_to_num(np.nanmean(profile_var[:, :, 161:163, 182:184].data, axis=(0, 2, 3)))
     elif domain == 'all':
         # Create Larsen mask
         Larsen_mask = np.zeros((400, 400))
@@ -218,9 +222,9 @@ def plot_profile(var, domain, plot_obs):
         Larsen_mask[35:260, 90:230] = lsm_subset
         Larsen_mask[orog.data > 25] = 0
         Larsen_mask = np.logical_not(Larsen_mask)
-        LCIS_mn = np.ma.masked_array(data=profile_var.data, mask=np.broadcast_to(Larsen_mask, profile_var.shape)).mean(axis=(0, 2, 3))
-        AWS14_mn = np.mean(profile_var[:, :, 199:201, 199:201].data, axis=(0, 2, 3))
-        AWS15_mn = np.mean(profile_var[:, :, 161:163, 182:184].data, axis=(0, 2, 3))
+        LCIS_mn = np.nan_to_num(np.nanmean(np.ma.masked_array(data=profile_var.data, mask=np.broadcast_to(Larsen_mask, profile_var.shape)),axis=(0, 2, 3)))
+        AWS14_mn = np.nan_to_num(np.nanmean(profile_var[:, :, 199:201, 199:201].data, axis=(0, 2, 3)))
+        AWS15_mn = np.nan_to_num(np.nanmean(profile_var[:, :, 161:163, 182:184].data, axis=(0, 2, 3)))
     fig, ax = plt.subplots(1,1, figsize=(10, 8))
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -242,10 +246,10 @@ def plot_profile(var, domain, plot_obs):
     ax.axes.tick_params(axis = 'both', which = 'both', direction = 'in', length = 5, width = 1.5,  labelsize = 24, pad = 10)
     #ax.tick_params(labelleft = 'off')
     if var == 'QCF' or var == 'QCL':
-        ax.set_xlim(0,0.02)
+        ax.set_xlim(0,0.2)
         [l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
-        if plot_obs == 'yes' or plot_obs == 'True':
-            ax.plot(mean_obs[var], altitude/1000., color = 'k', lw = 2.5, label = 'Mean observations')
+    if plot_obs == 'yes' or plot_obs == 'True':
+        ax.plot(mean_obs[var], altitude/1000., color = 'k', lw = 2.5, label = 'Mean observations')
     if var == 'QCF' or var == 'QCL' or var == 'q':
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))
@@ -261,8 +265,8 @@ def plot_profile(var, domain, plot_obs):
     #handles = [handles[0], handles[1], handles[-1], handles[2],  handles[3] ]
     #labels = [labels[0], labels[1], labels[-1], labels[2], labels[3]]
     #lgd = plt.legend(handles, labels, fontsize=20, markerscale=2)
-    plt.savefig('figs/'+domain+'_OFCAP_mean_vertical_profile_'+var+'.eps')
-    plt.savefig('figs'+domain+'_OFCAP_mean_vertical_profile_'+var+'.png')
+    plt.savefig('figs/'+domain+'_BL_OFCAP_mean_vertical_profile_'+var+'.eps')
+    plt.savefig('figs/'+domain+'_BL_OFCAP_mean_vertical_profile_'+var+'.png')
     plt.show()
 
 #for i in ['QCL', 'QCF', 'theta', 'q', 'Tair']:
@@ -456,6 +460,7 @@ def correlations():
     corr_SWd_IWP = iris.load_cube('timcor_SWd_v_IWP.nc')
 
 
+
 def load_AWS(station):
     ## --------------------------------------------- SET UP VARIABLES ------------------------------------------------##
     ## Load data from AWS 14 and AWS 15 for January 2011
@@ -515,7 +520,7 @@ def calc_BL_bias():
         bias.append(mean_mod[i] - mean_obs[i])
         slope, intercept, r2, p, sterr = scipy.stats.linregress(obs[i], BL_mod[i])
         r2s.append(r2)
-        rmse = mean_squared_error(y_true = obs[i], y_pred = BL_mod[i])
+        rmse = np.sqrt(mean_squared_error(y_true = obs[i], y_pred = BL_mod[i]))
         rmses.append(rmse)
         idx = ['SWd', 'LWd', 'SWn', 'LWn', 'SH', 'LH', 'total', 'melt']
     df = pd.DataFrame(index = idx)
@@ -528,7 +533,7 @@ def calc_BL_bias():
     df.to_csv('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/BL_run/OFCAP_BL_errors.csv')
     print(df)
 
-calc_BL_bias()
+#calc_BL_bias()
 
 def calc_bias():
     # Calculate bias of time series
@@ -573,15 +578,43 @@ def calc_bias():
     df.to_csv('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/OFCAP_BL_bias_and_RMSE.csv')
     print(df)
 
-calc_bias()
+#calc_bias()
 
 AWS_var = load_AWS('AWS14_SEB_2009-2017_norp')
-AWS_var = AWS_var[12:-1]
-obs = [AWS_var['SWin_corr'], AWS_var['LWin'], AWS_var['SWnet_corr'], AWS_var['LWnet_corr'], AWS_var['Hsen'], AWS_var['Hlat'], AWS_var['E'], AWS_var['melt_energy']]
-os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/BL_run/')
-BL_SEB_dict = load_t_srs(var = 'SEB', domain = 'AWS14')
-BL_mod = [BL_SEB_dict['SWdown_srs'], BL_SEB_dict['LWdown_srs'], BL_SEB_dict['SWnet_srs'], BL_SEB_dict['LWnet_srs'], BL_SEB_dict['HS_srs'], BL_SEB_dict['HL_srs'], BL_SEB_dict['Etot_srs'], BL_SEB_dict['melt_srs']]
-ctrl_mod = [SEB_dict['SWdown_srs'], SEB_dict['LWdown_srs'], SEB_dict['SWnet_srs'], SEB_dict['LWnet_srs'], SEB_dict['HS_srs'], SEB_dict['HL_srs'], SEB_dict['Etot_srs'], SEB_dict['melt_srs']]
+AWS_melt = AWS_var[12:-1]['melt_energy']
+melt_nonzero = np.copy(AWS_melt)
+melt_nonzero[melt_nonzero == 0.] = np.nan
+AWS_nonz_mn = np.nanmean(melt_nonzero)
+mod_melt_nonzero = np.copy(ctrl_SEB_dict['melt_srs'])
+mod_melt_nonzero[mod_melt_nonzero == 0.] = np.nan
+mod_nonz_mn = np.nanmean(mod_melt_nonzero)
+nonz_bias = np.nanmean(mod_melt_nonzero - melt_nonzero)
+
+
+def calc_melt(AWS_vars, model_vars):
+    Lf = 334000  # J kg-1
+    rho_H2O = 999.7  # kg m-3
+    melt_m_per_hr_obs = (AWS_vars['melt_energy'] / (Lf * rho_H2O))  # in mm per 30 min
+    melt_m_per_s_obs = melt_m_per_hr_obs * 3600  # multiply by (60 seconds * 60 mins) to get flux per second
+    total_melt_mmwe = melt_m_per_s_obs * 1000
+    obs_total_melt_cmv = np.cumsum(total_melt_mmwe, axis=0)[-1]
+    melt_m_per_hr_mod = (model_vars['melt_srs'] / (Lf * rho_H2O))  # in mm per 30 min
+    melt_m_per_s_mod = melt_m_per_hr_mod * 3600  # multiply by (60 seconds * 30 mins) to get flux per second
+    total_melt_mmwe = melt_m_per_s_mod * 1000
+    mod_total_melt_cmv = np.cumsum(total_melt_mmwe, axis=0)[-1]
+    print obs_total_melt_cmv, mod_total_melt_cmv
+    return obs_total_melt_cmv, mod_total_melt_cmv
+
+#obs_total_melt_cmv, mod_total_melt_cmv = calc_melt(AWS_vars = AWS14_SEB, model_vars = ctrl_SEB_dict)
+
+
+#AWS_var = load_AWS('AWS14_SEB_2009-2017_norp')
+#AWS_var = AWS_var[12:-1]
+#obs = [AWS_var['SWin_corr'], AWS_var['LWin'], AWS_var['SWnet_corr'], AWS_var['LWnet_corr'], AWS_var['Hsen'], AWS_var['Hlat'], AWS_var['E'], AWS_var['melt_energy']]
+#os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/BL_run/')
+#BL_SEB_dict = load_t_srs(var = 'SEB', domain = 'AWS14')
+#BL_mod = [BL_SEB_dict['SWdown_srs'], BL_SEB_dict['LWdown_srs'], BL_SEB_dict['SWnet_srs'], BL_SEB_dict['LWnet_srs'], BL_SEB_dict['HS_srs'], BL_SEB_dict['HL_srs'], BL_SEB_dict['Etot_srs'], BL_SEB_dict['melt_srs']]
+#ctrl_mod = [ctrl_SEB_dict['SWdown_srs'], ctrl_SEB_dict['LWdown_srs'], ctrl_SEB_dict['SWnet_srs'], ctrl_SEB_dict['LWnet_srs'], ctrl_SEB_dict['HS_srs'], ctrl_SEB_dict['HL_srs'], ctrl_SEB_dict['Etot_srs'], ctrl_SEB_dict['melt_srs']]
 
 def plot_BL_v_ctrl():
     fig, ax = plt.subplots(4,2, sharex = True, figsize = (16,24))
@@ -608,17 +641,17 @@ def plot_BL_v_ctrl():
     plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/BL_v_ctrl_SEB.png', transparent = True)
     plt.show()
 
-plot_BL_v_ctrl()
+#plot_BL_v_ctrl()
 
 
 def melt_plot():
     fig, ax = plt.subplots(figsize = (18,8))
     ax2 = ax.twiny()
-    ax.plot(SEB_dict['Model_time'], SEB_dict['melt_srs'], lw = 2, color = '#1f78b4', label = 'ctrl run', zorder = 1)
-    ax.plot(BL_SEB_dict['Model_time'], BL_SEB_dict['melt_srs'], lw=2, color='#33a02c', label='BL run',zorder=1)
+    ax.plot(ctrl_SEB_dict['Model_time'], BL_SEB_dict['melt_srs'], lw = 2, color = '#f68080', label = 'Modelled melt flux', zorder = 1)#color = '#1f78b4'
+    #ax.plot(BL_SEB_dict['Model_time'], BL_SEB_dict['melt_srs'], lw=2, color='#33a02c', label='BL run',zorder=1)
     ax2.plot(AWS14_SEB['datetime'], AWS14_SEB['melt_energy'], lw=2, color='k', label='observed melt flux', zorder = 2)
     ax2.set_xlim(AWS14_SEB['datetime'][0], AWS14_SEB['datetime'][-1])
-    ax.set_xlim(SEB_dict['Model_time'][0], SEB_dict['Model_time'][-1])
+    ax.set_xlim(BL_SEB_dict['Model_time'][0], BL_SEB_dict['Model_time'][-1])
     days = mdates.DayLocator(interval=1)
     dayfmt = mdates.DateFormatter('%d %b')
     ax.set_ylim(0, 200)
@@ -633,9 +666,10 @@ def melt_plot():
     ax.xaxis.set_major_formatter(dayfmt)
     #Legend
     lns = [Line2D([0],[0], color='k', linewidth = 2.5),
-           Line2D([0],[0], color =  '#1f78b4', linewidth = 2.5),
-           Line2D([0],[0], color =  '#33a02c', linewidth = 2.5)]
-    labs = ['Observed melt flux', 'ctrl run', 'BL run']
+           Line2D([0],[0], color = '#f68080', linewidth = 2.5)]
+           #Line2D([0],[0], color =  '#1f78b4', linewidth = 2.5),
+           #Line2D([0],[0], color =  '#33a02c', linewidth = 2.5)]
+    labs = ['Observed melt flux', 'Modelled melt flux']# 'ctrl run', 'BL run']
     lgd = ax2.legend(lns, labs, bbox_to_anchor=(0.55, 1.1), loc=2, fontsize=28)
     frame = lgd.get_frame()
     frame.set_facecolor('white')
@@ -643,23 +677,42 @@ def melt_plot():
         plt.setp(ln, color='dimgrey')
     lgd.get_frame().set_linewidth(0.0)
     plt.subplots_adjust(left = 0.22, right = 0.95)
-    if host == 'bsl':
-        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_melt_BL_v_ctrl.png', transparent = True)
-        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_melt_BL_v_ctrl.eps', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_melt_BL.png', transparent = True)
+    #if host == 'bsl':
+    #    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_melt_BL_v_ctrl.png', transparent = True)
+    #    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_melt_BL_v_ctrl.eps', transparent=True)
     plt.show()
 
-melt_plot()
+#melt_plot()
+title_dict = {'SWin_corr': 'SW$_{\downarrow}$',
+              'LWin': 'LW$_{\downarrow}$',
+              'SWnet_corr': 'SW$_{net}$',
+              'LWnet_corr': 'LW$_{net}$',
+              'Hlat': 'H$_{L}$',
+              'Hsen': 'H$_{S}$',
+              'E': 'E$_{tot}$',
+              'melt_energy': 'E$_{melt}$',
+              'Cloudcover': 'Cloud cover'}
+
+col_dict = {'SWin_corr': '#DC143C',
+              'LWin': '#EA580F',
+              'SWnet_corr': '#6fb0d2',
+              'LWnet_corr': '#86ad63',
+              'Hlat': '#33a02c',
+              'Hsen': '#1f78b4',
+              'E': '#222222',  #change this!
+              'melt_energy': '#f68080'}
 
 def flux_plot(flux, AWS_flux):
     fig, ax = plt.subplots(figsize = (18,8), sharex = True)
-    ax.plot(BL_SEB_dict['Model_time'], BL_mod[flux], color='#33a02c',  lw=2, label='BL run') #linestyle='--',
-    ax.plot(SEB_dict['Model_time'], ctrl_mod[flux], color='#1f78b4',  lw=2, label='ctrl run') #linestyle='--',
+    #ax.plot(BL_SEB_dict['Model_time'], BL_mod[flux], color='#33a02c',  lw=2, label='BL run') #linestyle='--',
+    ax.plot(ctrl_SEB_dict['Model_time'], BL_mod[flux], color=col_dict[AWS_flux],  lw=2, label='ctrl run') #linestyle='--',
     ax.plot(AWS14_SEB['datetime'], AWS14_SEB[AWS_flux], lw=2, color='k', zorder = 2)
     ax.set_xlim(AWS14_SEB['datetime'][0], AWS14_SEB['datetime'][-1])
     days = mdates.DayLocator(interval=1)
     dayfmt = mdates.DateFormatter('%d %b')
     #ax.set_ylim(-50,50)
-    ax.set_ylabel('Energy flux\n(W m$^{-2}$)', rotation = 0, fontsize = 36, labelpad = 100, color = 'dimgrey')
+    ax.set_ylabel(title_dict[AWS_flux] + '\n bias (W m$^{-2}$)', rotation = 0, fontsize = 36, labelpad = 100, color = 'dimgrey')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
@@ -669,9 +722,9 @@ def flux_plot(flux, AWS_flux):
     ax.xaxis.set_major_formatter(dayfmt)
     #Legend
     lns = [Line2D([0],[0], color='k', linewidth = 2.5),
-           Line2D([0], [0], color='#1f78b4', linewidth=2.5),
-           Line2D([0],[0], color =  '#33a02c', linewidth = 2.5)]
-    labs = ['Observed flux', 'ctrl run', 'BL run']# ['Observed LW$_{\downarrow}$', 'Modelled LW$_{\downarrow}$']
+           Line2D([0], [0], color=col_dict[AWS_flux], linewidth=2.5),]
+           #Line2D([0],[0], color =  '#33a02c', linewidth = 2.5)]
+    labs = ['Observed flux', 'Modelled flux']#, 'BL run']# ['Observed LW$_{\downarrow}$', 'Modelled LW$_{\downarrow}$']
     lgd = ax.legend(lns, labs, bbox_to_anchor=(0.65, 1.1), loc=2, fontsize=28)
     frame = lgd.get_frame()
     frame.set_facecolor('white')
@@ -680,20 +733,160 @@ def flux_plot(flux, AWS_flux):
     lgd.get_frame().set_linewidth(0.0)
     plt.subplots_adjust(left = 0.22, right = 0.95)
     if host == 'bsl':
-        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_'+AWS_flux_names[j]+'.png', transparent = True)
-        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_'+AWS_flux_names[j]+'.eps', transparent=True)
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/BL/OFCAP_BL_'+AWS_flux_names[j]+'.png', transparent = True)
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/BL/OFCAP_BL_'+AWS_flux_names[j]+'.eps', transparent=True)
     #plt.show()
 
 
-AWS_flux_names = ['SWin_corr','LWin','SWnet_corr','LWnet_corr','Hsen','Hlat','E','melt_energy']
-mod_flux_names = ['SWdown_srs','LWdown_srs','SWnet_srs','LWnet_srs','HS_srs','HL_srs','Etot_srs','melt_srs']
 
-for j in range(len(mod_flux_names)):
-    flux_plot(flux = j, AWS_flux = AWS_flux_names[j])
+def flux_bias_plot(flux, AWS_flux):
+    fig, ax = plt.subplots(figsize = (18,8), sharex = True)
+    #ax.plot(BL_SEB_dict['Model_time'], BL_mod[flux], color='#33a02c',  lw=2, label='BL run') #linestyle='--',
+    ax.plot(ctrl_SEB_dict['Model_time'],  ctrl_mod[flux]- AWS14_SEB[AWS_flux], color=col_dict[AWS_flux],  lw=2, label='ctrl run') #linestyle='--',
+    ax.set_xlim(AWS14_SEB['datetime'][0], AWS14_SEB['datetime'][-1])
+    days = mdates.DayLocator(interval=1)
+    dayfmt = mdates.DateFormatter('%d %b')
+    ax.set_ylim(-150,150)
+    ax.set_ylabel(title_dict[AWS_flux] + '\n bias (W m$^{-2}$)', rotation = 0, fontsize = 36, labelpad = 100, color = 'dimgrey')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
+    ax.tick_params(axis='both', which='both', labelsize=36, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+    [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
+    [l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
+    ax.xaxis.set_major_formatter(dayfmt)
+    #Legend
+    #lns = [Line2D([0],[0], color='k', linewidth = 2.5),
+    #       Line2D([0], [0], color='#1f78b4', linewidth=2.5),]
+    #       #Line2D([0],[0], color =  '#33a02c', linewidth = 2.5)]
+    #labs = ['Observed flux', 'Modelled flux']#, 'BL run']# ['Observed LW$_{\downarrow}$', 'Modelled LW$_{\downarrow}$']
+    #lgd = ax.legend(lns, labs, bbox_to_anchor=(0.65, 1.1), loc=2, fontsize=28)
+    #frame = lgd.get_frame()
+    #frame.set_facecolor('white')
+    #for ln in lgd.get_texts():
+    #    plt.setp(ln, color='dimgrey')
+    #lgd.get_frame().set_linewidth(0.0)
+    plt.subplots_adjust(left = 0.25, right = 0.95)
+    if host == 'bsl':
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_bias_'+AWS_flux_names[j]+'.png', transparent = True)
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_bias_'+AWS_flux_names[j]+'.eps', transparent=True)
+    #plt.show()
+
+def Ts_plot(which):
+    fig, ax = plt.subplots(figsize = (18,8), sharex = True)
+    if which == 'BL':
+        ax.plot(BL_SEB_dict['Model_time'], BL_SEB_dict['Ts_srs'], color='darkred',  lw=2, label='BL run') #linestyle='--',
+    elif which == 'ctrl':
+        ax.plot(ctrl_SEB_dict['Model_time'], ctrl_SEB_dict['Ts_srs'], color='darkred',  lw=2, label='ctrl run') #linestyle='--',
+    ax.plot(AWS14_SEB['datetime'], AWS14_SEB['Tsobs'], lw=2, color='k', zorder = 2)
+    ax.set_xlim(AWS14_SEB['datetime'][0], AWS14_SEB['datetime'][-1])
+    days = mdates.DayLocator(interval=1)
+    dayfmt = mdates.DateFormatter('%d %b')
+    #ax.set_ylim(-50,50)
+    ax.set_ylabel('T$_{S}$ ($^{\circ}$C)', rotation = 0, fontsize = 36, labelpad = 100, color = 'dimgrey')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
+    ax.tick_params(axis='both', which='both', labelsize=36, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+    [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
+    [l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
+    ax.xaxis.set_major_formatter(dayfmt)
+    #Legend
+    lns = [Line2D([0],[0], color='k', linewidth = 2.5),
+           Line2D([0], [0], color='darkred', linewidth=2.5),]
+           #Line2D([0],[0], color =  '#33a02c', linewidth = 2.5)]
+    labs = ['Observed flux', 'Modelled flux']#, 'BL run']# ['Observed LW$_{\downarrow}$', 'Modelled LW$_{\downarrow}$']
+    lgd = ax.legend(lns, labs, bbox_to_anchor=(0.65, 1.1), loc=2, fontsize=28)
+    frame = lgd.get_frame()
+    frame.set_facecolor('white')
+    for ln in lgd.get_texts():
+        plt.setp(ln, color='dimgrey')
+    lgd.get_frame().set_linewidth(0.0)
+    plt.subplots_adjust(left = 0.22, right = 0.95)
+    if host == 'bsl':
+        if which == 'BL':
+            plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/BL/OFCAP_BL_Ts.png', transparent = True)
+            plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/BL/OFCAP_BL_Ts.eps', transparent=True)
+        elif which == 'ctrl':
+            plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_ctrl_Ts.png', transparent = True)
+            plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_ctrl_Ts.eps', transparent=True)
+    plt.show()
+
+#Ts_plot(which = 'ctrl')
+
+#AWS_flux_names = ['SWin_corr','LWin','SWnet_corr','LWnet_corr','Hsen','Hlat','E','melt_energy']
+#mod_flux_names = ['SWdown_srs','LWdown_srs','SWnet_srs','LWnet_srs','HS_srs','HL_srs','Etot_srs','melt_srs']
+
+#for j in range(len(mod_flux_names)):
+#    flux_bias_plot(flux = j, AWS_flux = AWS_flux_names[j])
+
+#AWS_flux_names = ['SWin_corr','LWin','SWnet_corr','LWnet_corr','Hsen','Hlat','E','melt_energy']
+#mod_flux_names = ['SWdown_srs','LWdown_srs','SWnet_srs','LWnet_srs','HS_srs','HL_srs','Etot_srs','melt_srs']
+
+#for j in range(len(mod_flux_names)):
+#    flux_plot(flux = j, AWS_flux = AWS_flux_names[j])
 
 
+def remove_diurnal_cyc(data):
+    data = data[12:,0,:,:].data
+    nt, ny, nx = data.shape
+    data = data.reshape(nt, ny*nx)
+    tmax, ngrid = data.shape
+    diur = np.zeros((24, ngrid)) #_number of hours
+    for hr in np.arange(24):
+        idx = np.arange(hr, tmax, 24)
+        diur[hr, :] = data[idx].mean(axis = 0)
+    day_cyc = np.reshape(diur,(24,ny,nx))
+    diur = np.tile(diur, [37, 1]) # 24 hours in 37 days
+    data = (data - diur).reshape(nt, ny, nx)
+    return data, day_cyc
+
+MSLP = iris.load_cube('OFCAP_MSLP.nc', 'air_pressure_at_sea_level')
+MSLP.convert_units('hPa')
+MSLP, diur_MSLP
+
+Tair = iris.load_cube('OFCAP_Tair.nc', 'air_temperature')
+Tair_mn, Tair_diur = remove_diurnal_cyc(Tair)
 
 
+def obs_correl_scatter(x_var, y_var):
+    slope, intercept, r2, p, sterr = scipy.stats.linregress(AWS14_SEB[x_var], AWS14_SEB[y_var])
+    fig, ax = plt.subplots(1,1, figsize = (8,8))
+    ax.scatter(AWS14_SEB[x_var], AWS14_SEB[y_var], color = '#f68080')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.set_xlabel(title_dict[x_var], fontsize = '32', color = 'dimgrey', rotation = 0, labelpad = 50)
+    ax.set_ylabel(title_dict[y_var], fontsize = '32', color = 'dimgrey', rotation = 0, labelpad = 50)
+    plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
+    #ax.set(adjustable='box-forced', aspect='equal')
+    ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+    plt.subplots_adjust(left = 0.25, bottom = 0.25)
+    if x_var == 'SWin_corr' or x_var == 'LWin' or x_var == 'melt_energy':
+        ax.set_xlim(np.round(np.floor(np.min(AWS14_SEB[x_var])), -1), np.round(np.ceil(np.max(AWS14_SEB[x_var])), -1))
+        plt.xticks([np.round(np.floor(np.min(AWS14_SEB[x_var])), -1), np.round(np.ceil(np.max(AWS14_SEB[x_var])), -1)])
+    if y_var == 'SWin_corr' or y_var == 'LWin' or y_var == 'melt_energy':
+        ax.set_ylim(np.round(np.floor(np.min(AWS14_SEB[y_var])), -1), np.round(np.ceil(np.max(AWS14_SEB[y_var])), -1))
+        plt.yticks([np.round(np.floor(np.min(AWS14_SEB[y_var])), -1), np.round(np.ceil(np.max(AWS14_SEB[y_var])), -1)])
+    if x_var == 'Cloudcover':
+        ax.set_xlim(0, 1)
+        plt.xticks([0, 1])
+    if y_var == 'Cloudcover':
+        ax.set_ylim(0., 1.)
+        plt.yticks([0, 1])
+    if p <= 0.01:
+        ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                s='r$^{2}$ = %s' % np.round(r2, decimals=2),
+                fontweight='bold', transform=ax.transAxes, size=28, color='dimgrey')
+    else:
+        ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax.transAxes, size=28, color='dimgrey')
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_obs_correl_'+x_var+'_'+y_var+'.png', transparent = True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_obs_correl_'+x_var+'_'+y_var+'.eps', transparent=True)
+    plt.show()
+
+obs_correl_scatter(x_var = 'LWin', y_var = 'melt_energy' )
+obs_correl_scatter(x_var = 'SWin_corr', y_var = 'melt_energy' )
+obs_correl_scatter(x_var = 'Cloudcover', y_var = 'melt_energy' )
 
 def full_SEB():
     fig, ax = plt.subplots(figsize = (18,8), sharex = True)
@@ -817,8 +1010,8 @@ def plot_synop(time_idx):
     #plt.show()
 
 
-for j in range(39):
-    plot_synop(j)
+#for j in range(39):
+#    plot_synop(j)
 
 # Plot some kind of time series of daily mean met vars
 
@@ -842,518 +1035,6 @@ for j in range(39):
 #       b) fluxes
 #       c) melt
 
-
-
-
-## Define functions
-# Load model data
-def load_mp(config, vars):
-    ''' Import microphysical quantities from the OFCAP/January long runs.
-
-    Inputs:
-    - config: a string that all files should contain that identifies the model configuration, e.g. 'lg_t'
-    - vars: a string that tells the scripts which variables to load - should be either 'water paths', 'mass fractions' or 'both'.
-
-    Outputs: a dictionary containing all the necessary variables to plot for your requested variable.
-
-    Author: Ella Gilbert, 2018.
-
-    '''
-    start = time.time()
-    print('\nimporting data from %(config)s...' % locals())
-    if vars == 'water paths':
-        os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/proc_data/')
-        print('\nice water path')
-        try:
-            IWP = iris.load_cube(OFCAP_IWP.nc, iris.AttributeConstraint(STASH='m01s02i392') & iris.Constraint(grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))# stash code s02i392
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n IWP not in this file')
-        print('\nliquid water path')
-        try:
-            LWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i391') & iris.Constraint(grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9, forecast_period=lambda cell: cell >= 12.5))
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n LWP not in this file')
-        for j in [LWP, IWP,]:
-            j.convert_units('g m-2')
-        mean_IWP = IWP.collapsed(['latitude', 'longitude'], iris.analysis.MEAN) # take mean of lazy data so cube data not loaded into memory
-        mean_LWP = LWP.collapsed(['latitude', 'longitude'], iris.analysis.MEAN)
-        AWS14_mean_IWP = IWP[:, :,165:167, 98:100].collapsed(['latitude', 'longitude'], iris.analysis.MEAN)
-        AWS14_mean_LWP = LWP[:, :,165:167, 98:100].collapsed(['latitude', 'longitude'], iris.analysis.MEAN)
-        AWS15_mean_IWP = IWP[:, :,127:129, 81:83].collapsed(['latitude', 'longitude'], iris.analysis.MEAN)
-        AWS15_mean_LWP = LWP[:, :,127:129, 81:83].collapsed(['latitude', 'longitude'], iris.analysis.MEAN)
-        config_dict = {'AWS14_mean_IWP': AWS14_mean_IWP,'AWS15_mean_IWP': AWS15_mean_IWP, 'AWS14_mean_LWP': AWS14_mean_LWP,
-                       'AWS15_mean_LWP': AWS15_mean_LWP, 'mean_IWP': mean_IWP, 'mean_LWP': mean_LWP}
-    elif vars == 'mass fractions':
-        os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/') # quicker
-        print('\nice mass fraction')
-        try:
-            ice_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_ice_in_air',
-                                                               model_level_number=lambda cell: cell < 40,
-                                                               grid_longitude=lambda cell: 178.5 < cell < 180.6,
-                                                               grid_latitude=lambda cell: -2.5 < cell < 0.9))  # ,forecast_period=lambda cell: cell >= 12.5))
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n QCF not in this file')
-        print('\nliquid mass fraction')
-        try:
-            liq_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_liquid_water_in_air',
-                                                               model_level_number=lambda cell: cell < 40,
-                                                               grid_longitude=lambda cell: 178.5 < cell < 180.6,
-                                                               grid_latitude=lambda cell: -2.5 < cell < 0.9))  # , forecast_period=lambda cell: cell >= 12.5))
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n QCL not in this file')
-        for i in [ice_mass_frac, liq_mass_frac]:#, qc]:
-            i.convert_units('g kg-1')
-        ## ---------------------------------------- CREATE MODEL VERTICAL PROFILES ------------------------------------------ ##
-        # Create mean vertical profiles for region of interest (Larsen C)
-        print('\ncreating vertical profiles geez...')
-        mean_QCF = ice_mass_frac.collapsed('altitude', iris.analysis.MEAN) #np.mean(ice_mass_frac.data, axis=(0, 1, 3, 4))
-        mean_QCL = liq_mass_frac.collapsed('altitude', iris.analysis.MEAN) #np.mean(liq_mass_frac.data, axis=(0, 1, 3, 4))  # 0,2,3
-        AWS14_mean_QCF = ice_mass_frac[:, :, :40, 165:167, 98:100].collapsed('altitude', iris.analysis.MEAN)
-        AWS14_mean_QCL = liq_mass_frac[:, :, :40, 165:167, 98:100].collapsed('altitude', iris.analysis.MEAN)
-        AWS15_mean_QCF = ice_mass_frac[:, :, :40, 127:129, 81:83].collapsed('altitude', iris.analysis.MEAN)
-        AWS15_mean_QCL = liq_mass_frac[:, :, :40, 127:129, 81:83].collapsed('altitude', iris.analysis.MEAN)
-        altitude = ice_mass_frac.coord('level_height').points / 1000
-        config_dict = {'altitude': altitude,'mean_QCF': mean_QCF,'mean_QCL': mean_QCL,
-                       'AWS14_mean_QCF': AWS14_mean_QCF, 'AWS14_mean_QCL': AWS14_mean_QCL,
-                       'AWS15_mean_QCF': AWS15_mean_QCF, 'AWS15_mean_QCL': AWS15_mean_QCL}
-    elif vars == 'both':
-        os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/')
-        print('\nice water path')  # as above, and convert from kg m-2 to g m-2
-        try:
-            IWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i392') & iris.Constraint(
-                grid_longitude=lambda cell: 178.5 < cell < 180.6, grid_latitude=lambda cell: -2.5 < cell < 0.9,
-                forecast_period=lambda cell: cell >= 12.5))  # stash code s02i392
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n IWP not in this file')
-        print('\nliquid water path')
-        try:
-            LWP = iris.load_cube(pb, iris.AttributeConstraint(STASH='m01s02i391') & iris.Constraint(
-                grid_longitude=lambda cell: 178.5 < cell < 180.6, grid_latitude=lambda cell: -2.5 < cell < 0.9,
-                forecast_period=lambda cell: cell >= 12.5))
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n LWP not in this file')
-        for j in [LWP, IWP, ]:
-            j.convert_units('g m-2')
-        mean_IWP = IWP.collapsed(['latitude', 'longitude'], iris.analysis.MEAN) # take mean of lazy data so cube data not loaded into memory
-        mean_LWP = LWP.collapsed(['latitude', 'longitude'], iris.analysis.MEAN)
-        AWS14_mean_IWP = IWP[:, :,165:167, 98:100].collapsed(['latitude', 'longitude'], iris.analysis.MEAN)
-        AWS14_mean_LWP = LWP[:, :,165:167, 98:100].collapsed(['latitude', 'longitude'], iris.analysis.MEAN)
-        AWS15_mean_IWP = IWP[:, :,127:129, 81:83].collapsed(['latitude', 'longitude'], iris.analysis.MEAN)
-        AWS15_mean_LWP = LWP[:, :,127:129, 81:83].collapsed(['latitude', 'longitude'], iris.analysis.MEAN)
-        print('\nice mass fraction')
-        try:
-            ice_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_ice_in_air',
-                                                               model_level_number=lambda cell: cell < 40,
-                                                               grid_longitude=lambda cell: 178.5 < cell < 180.6,
-                                                               grid_latitude=lambda cell: -2.5 < cell < 0.9,
-                                                               forecast_period=lambda cell: cell >= 12.5))
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n QCF not in this file')
-        print('\nliquid mass fraction')
-        try:
-            liq_mass_frac = iris.load_cube(pb, iris.Constraint(name='mass_fraction_of_cloud_liquid_water_in_air',
-                                                               model_level_number=lambda cell: cell < 40,
-                                                               grid_longitude=lambda cell: 178.5 < cell < 180.6,
-                                                               grid_latitude=lambda cell: -2.5 < cell < 0.9,
-                                                               forecast_period=lambda cell: cell >= 12.5))
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n QCL not in this file')
-        # Convert units and times to useful ones
-        for i in [ice_mass_frac, liq_mass_frac]:  # , qc]:
-            i.convert_units('g kg-1')
-            i.coord('time').convert_units('hours since 2011-01-01 00:00')
-        ## ---------------------------------------- CREATE MODEL VERTICAL PROFILES ------------------------------------------ ##
-        # Create mean vertical profiles for region of interest (Larsen C)
-        print('\ncreating vertical profiles geez...')
-        mean_QCF = ice_mass_frac.collapsed('altitude', iris.analysis.MEAN) #np.mean(ice_mass_frac.data, axis=(0, 1, 3, 4))
-        mean_QCL = liq_mass_frac.collapsed('altitude', iris.analysis.MEAN) #np.mean(liq_mass_frac.data, axis=(0, 1, 3, 4))  # 0,2,3
-        AWS14_mean_QCF = ice_mass_frac[:, :, :40, 165:167, 98:100].collapsed('altitude', iris.analysis.MEAN)
-        AWS14_mean_QCL = liq_mass_frac[:, :, :40, 165:167, 98:100].collapsed('altitude', iris.analysis.MEAN)
-        AWS15_mean_QCF = ice_mass_frac[:, :, :40, 127:129, 81:83].collapsed('altitude', iris.analysis.MEAN)
-        AWS15_mean_QCL = liq_mass_frac[:, :, :40, 127:129, 81:83].collapsed('altitude', iris.analysis.MEAN)
-        altitude = ice_mass_frac.coord('level_height').points / 1000
-        config_dict = {'altitude': altitude,'mean_QCF': mean_QCF,'mean_QCL': mean_QCL,
-                       'AWS14_mean_QCF': AWS14_mean_QCF, 'AWS14_mean_QCL': AWS14_mean_QCL,
-                       'AWS15_mean_QCF': AWS15_mean_QCF, 'AWS15_mean_QCL': AWS15_mean_QCL,
-                       'AWS14_mean_IWP': AWS14_mean_IWP,'AWS15_mean_IWP': AWS15_mean_IWP,
-                       'AWS15_mean_LWP': AWS15_mean_LWP, 'mean_IWP': mean_IWP, 'mean_LWP': mean_LWP}
-    constr_lsm = iris.load_cube(pa, iris.Constraint(name ='land_binary_mask', grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9 ))[0,:,:]
-    constr_orog = iris.load_cube(pa, iris.Constraint(name ='surface_altitude', grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9 ))[0,:,:]
-    end = time.time()
-    print('\nDone, in {:01d} secs'.format(int(end - start)))
-    # Find max and min values at each model level
-    #time_mean_QCF = np.mean(box_QCF, axis=0)
-    #array = pd.DataFrame()
-    #for each_lat in np.arange(74):
-    #    for each_lon in np.arange(25):
-    #        for each_time in np.arange(len(ice_mass_frac.coord('time').points)):
-    #            m = pd.DataFrame(box_QCF[each_time, :, each_lat, each_lon])
-    #            array = pd.concat([m, array], axis=1)
-    #    max_QCF = array.max(axis=1)
-    #    min_QCF = array.min(axis=1)
-    # Calculate 95th percentile
-    #ice_95 = np.percentile(array, 95, axis=1)
-    #ice_5 = np.percentile(array, 5, axis=1)
-    # Find max and min values at each model level
-    #time_mean_QCL = np.mean(box_QCL, axis=0)
-    #array = pd.DataFrame()
-    #for each_lat in np.arange(74):
-    #    for each_lon in np.arange(25):
-    #        for each_time in np.arange(len(ice_mass_frac.coord('time').points)):
-    #            m = pd.DataFrame(box_QCL[each_time, :, each_lat, each_lon])
-    #            array = pd.concat([m, array], axis=1)
-        #max_QCL = array.max(axis=1)
-        #min_QCL = array.min(axis=1)
-    # Calculate 95th percentile
-    #liq_95 = np.percentile(array, 95, axis=1)
-    #liq_5 = np.percentile(array, 5, axis=1)
-    # Calculate PDF of ice and liquid water contents
-    #liq_PDF = mean_liq.plot.density(color = 'k', linewidth = 1.5)
-    #ice_PDF = mean_ice.plot.density(linestyle = '--', linewidth=1.5, color='k')
-    return config_dict, constr_lsm, constr_orog
-
-def load_SEB(config, vars):
-    ''' Import surface energy balance quantities at AWS 14 from an OFCAP model run.
-
-    Inputs:
-        - config = model configuration used
-        - vars = string describing which variables you want to output. Should be either 'downwelling' or 'SEB'.
-
-    Author: Ella Gilbert, 2018.
-
-    '''
-    pa = []
-    pf = []
-    print('\nimporting data from %(config)s...' % locals())
-    for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/'):
-        if fnmatch.fnmatch(file,  '*%(config)s_pf*' % locals()):
-            pf.append(file)
-    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
-    for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/'):
-        if fnmatch.fnmatch(file,  '*%(config)s_pa*' % locals()):
-            pa.append(file)
-    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test/')
-    if vars == 'downwelling':
-        print('\n Downwelling longwave')
-        try:
-            LW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_longwave_flux',
-                                                         grid_longitude = lambda cell: 178.5 < cell < 180.6,
-                                                         grid_latitude = lambda cell: -2.5 < cell < 0.9,
-                                                         forecast_period=lambda cell: cell >= 12.5))
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n Downwelling LW not in this file')
-        print('\nDownwelling shortwave')
-        try:
-            SW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_shortwave_flux_in_air',
-                                                         grid_longitude=lambda cell: 178.5 < cell < 180.6,
-                                                         grid_latitude=lambda cell: -2.5 < cell < 0.9,
-                                                         forecast_period=lambda cell: cell >= 12.5))
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n Downwelling SW not in this file')
-        var_dict = {'LW_down': LW_down, 'SW_down': SW_down}
-    elif vars == 'SEB':
-        print('\n Downwelling longwave')
-        try:
-            LW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_longwave_flux', grid_longitude=180,
-                                                         grid_latitude=0,
-                                                         forecast_period=lambda cell: cell >= 12.5))
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n Downwelling LW not in this file')
-        print('\n Net longwave')
-        try:
-            LW_net = iris.load_cube(pf, iris.Constraint(name='surface_net_downward_longwave_flux', grid_longitude=180,
-                                                         grid_latitude=0,
-                                                         forecast_period=lambda cell: cell >= 12.5))
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n Net LW not in this file')
-        print('\n Net shortwave')
-        try:
-            SW_net = iris.load_cube(pf, iris.Constraint(name='surface_net_downward_shortwave_flux', grid_longitude=180,
-                                                         grid_latitude=0,
-                                                         forecast_period=lambda cell: cell >= 12.5))
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n Net SW not in this file')
-        print('\nDownwelling shortwave')
-        try:
-            SW_down = iris.load_cube(pf, iris.Constraint(name='surface_downwelling_shortwave_flux_in_air',
-                                                         grid_longitude=180,
-                                                         grid_latitude=0, forecast_period=lambda cell: cell >= 12.5))
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n Downwelling SW not in this file')
-        print('\nUpwelling shortwave')
-        try:
-            SW_up = iris.load_cube(pf, iris.Constraint(name='upwelling_shortwave_flux_in_air',
-                                                         grid_longitude=180,
-                                                         grid_latitude=0,
-                                                       model_level_number = 1, forecast_period=lambda cell: cell >= 12.5))
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n Upwelling SW not in this file')
-            SW_up = SW_net - SW_down
-        print('\nUpwelling longwave')
-        try:
-            LW_up = iris.load_cube(pf, iris.Constraint(name='upwelling_longwave_flux_in_air',
-                                                       grid_longitude=180,
-                                                       grid_latitude=0,
-                                                       model_level_number=1,
-                                                       forecast_period=lambda cell: cell >= 12.5))
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n Upwelling LW not in this file')
-            LW_up = LW_net - LW_down
-        print('\nSensible heat')
-        try:
-            SH = iris.load_cube(pf, iris.Constraint(name='surface_upward_sensible_heat_flux',
-                                                       grid_longitude=180,
-                                                       grid_latitude=0,
-                                                       forecast_period=lambda cell: cell >= 12.5))
-            SH = 0 - SH.data
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n SH not in this file')
-        print('\nLatent heat')
-        try:
-            LH = iris.load_cube(pf, iris.Constraint(name='surface_upward_latent_heat_flux',
-                                                       grid_longitude=180,
-                                                       grid_latitude=0,
-                                                       forecast_period=lambda cell: cell >= 12.5))
-            LH = 0 - LH.data
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n LH not in this file')
-        os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/')
-        print('\nSurface temperature')
-        try:
-            Ts = iris.load_cube(pa, iris.Constraint(name='surface_temperature',
-                                                    grid_longitude=180,
-                                                    grid_latitude=0,
-                                                    forecast_period=lambda cell: cell >= 12.5))
-            # Ts.convert_units('celsius')
-        except iris.exceptions.ConstraintMismatchError:
-            print('\n Ts not in this file')
-        var_dict = {'SW_up': SW_up, 'SW_down': SW_down, 'LH': LH, 'SH': SH, 'LW_up': LW_up, 'LW_down': LW_down,  'Ts': Ts}
-    return var_dict
-
-
-
-def load_met(config):
-    ''' Import meteorological quantities at AWS 14 from an OFCAP model run.
-
-    Inputs:
-        - config = model configuration used
-
-    Author: Ella Gilbert, 2018.
-
-    '''
-    start = time.time()
-    pa = ['20110101T0000Z_Peninsula_1p5km_RA1M_mods_lg_t_pa000.pp','20110101T1200Z_Peninsula_1p5km_RA1M_mods_lg_t_pa000.pp' ]
-    #print('\nimporting data from %(config)s...' % locals())
-    #for file in os.listdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/'):
-    #    if fnmatch.fnmatch(file, '*%(config)s*_pa*' % locals()):
-    #        pa.append(file)
-    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/large 00Z files/')
-    print('\nAir temperature')
-    # Load only last 12 hours of forecast (i.e. t+12 to t+24, discarding preceding 12 hours as spin-up) for bottom 40 levels, and perform unit conversion from K to *C
-    try:
-        T_air = iris.load_cube(pa, iris.Constraint(name='air_temperature'))
-                                               #grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9))
-        T_air.convert_units('celsius')
-    except iris.exceptions.ConstraintMismatchError:
-        print('\n T_air not in this file')
-    print('\nAir potential temperature')
-    try:
-        theta = iris.load_cube(pa, iris.Constraint(name='air_potential_temperature', model_level_number=lambda cell: cell <= 40))
-                                               #grid_longitude=lambda cell: 178.5 < cell < 180.6,
-                                               #grid_latitude=lambda cell: -2.5 < cell < 0.9))
-        theta.convert_units('celsius')
-    except:
-        print('\n theta not in this file')
-    print('\nSurface temperature')
-    try:
-        Ts = iris.load_cube(pa, iris.Constraint(name='surface_temperature'))
-                                            #grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9))
-        Ts.convert_units('celsius')
-    except:
-        print('\n Ts not in this file')
-    print('\nSpecific humidity')
-    try:
-        q = iris.load_cube(pa, iris.Constraint(name='specific_humidity', model_level_number=lambda cell: cell <= 40))
-                                           #grid_longitude = lambda cell: 178.5 < cell < 180.6, grid_latitude = lambda cell: -2.5 < cell < 0.9,))
-        q.convert_units('g kg-1') # Convert to g kg-1
-    except:
-        print('\n q not in this file')
-    print('\nMean sea level pressure')
-    try:
-        MSLP = iris.load_cube(pa, iris.Constraint(name = 'air_pressure_at_sea_level')  & iris.Constraint(forecast_period=lambda cell: cell >= 12.5))
-        MSLP.convert_units('hPa')
-    except:
-        print('\n MSLP not in this file')
-    print('\nZonal component of wind')
-    #try:
-    #    u = iris.load_cube(pa, iris.Constraint(name = 'x_wind', forecast_period=lambda cell: cell >= 12.5))
-    #print('\nMeridional component of wind')
-    #v = iris.load(pa, iris.Constraint(name = 'y_wind', forecast_period=lambda cell: cell >= 12.5))
-    print('\nLSM')
-    lsm = iris.load_cube(pa, 'land_binary_mask')
-    lsm = lsm[0,:,:]
-    print('\nOrography')
-    orog = iris.load_cube(pa, 'surface_altitude')
-    orog = orog[0,:,:]
-    for i in [theta, T_air,  q]: # 4-D variables     u, v,
-        real_lon, real_lat = rotate_data(i, 3, 4)
-    for j in [Ts, MSLP]:  # 3-D variables
-        real_lon, real_lat = rotate_data(j, 2, 3)  # time vars don't load in properly = forecast time + real time
-    for k in [lsm, orog]: # 2-D variables
-        real_lon, real_lat = rotate_data(k, 0, 1)
-    # Convert times to useful ones
-    print('\nConverting times...')
-    for i in [theta, T_air, Ts, q, MSLP]:# , u, v,
-        i.coord('time').convert_units('hours since 2011-01-01 00:00')
-    # Create spatial means for maps
-    print('\nCalculating means...')
-    mean_MSLP = np.mean(MSLP.data, axis = (0,1))
-    mean_Ts = np.mean(Ts.data, axis = (0,1))
-    # Sort out time series loading
-    def construct_srs(cube):
-        i = range(len(cube.coord('forecast_reference_time').points))
-        k = cube.data
-        series = []
-        for j in i:
-            a = k[:, j]
-            a = np.array(a)
-            series = np.append(series, a)
-        return series
-    # Produce time series
-    print('\nCreating time series...')
-    AWS14lon, AWS14lat = find_gridbox(-67.01, -61.03, real_lat, real_lon)
-    AWS15lon, AWS15lat = find_gridbox(-67.34, -62.09, real_lat, real_lon)
-    AWS14_Ts = Ts[:,:,AWS14lat,AWS14lon]
-    AWS14_Ts_srs = construct_srs(AWS14_Ts)
-    AWS14_Tair = T_air[:,:,0, AWS14lat,AWS14lon]
-    AWS14_Tair_srs = construct_srs(AWS14_Tair)
-    AWS15_Ts = Ts[:,:,AWS15lat,AWS15lon]
-    AWS15_Ts_srs = construct_srs(AWS15_Ts)
-    AWS15_Tair = T_air[:,:,0, AWS15lat,AWS15lon]
-    AWS15_Tair_srs = construct_srs(AWS15_Tair)
-    ## ---------------------------------------- CREATE MODEL VERTICAL PROFILES ------------------------------------------ ##
-    # Create mean vertical profiles for region of interest
-    # region of interest = ice shelf. Longitudes of ice shelf along transect =
-    # OR: region of interest = only where aircraft was sampling layer cloud: time 53500 to 62000 = 14:50 to 17:00
-    # Define box: -62 to -61 W, -66.9 to -68 S
-    # Coord: lon = 188:213, lat = 133:207, time = 4:6 (mean of preceding hours)
-    print('\ncreating vertical profiles...\n\nBox means first...')
-    box_T = np.mean(T_air[:, :, :, 133:207, 188:213].data, axis=(0, 1, 3, 4))
-    box_theta = np.mean(theta[:, :, :, 133:207, 188:213].data, axis=(0, 1, 3, 4))
-    box_q = np.mean(q[:, :, :, 133:207, 188:213].data, axis=(0, 1, 3, 4))
-    print('\nNow for AWS 14...')
-    AWS14_mean_T = np.mean(T_air[:, :, :, 199:201, 199:201].data, axis=(0, 1, 3, 4))
-    AWS14_mean_theta = np.mean(theta[:, :, :, 199:201, 199:201].data, axis=(0, 1, 3, 4))
-    AWS14_mean_q= np.mean(q[:, :, :, 199:201, 199:201].data, axis=(0, 1, 3, 4))
-    print('\nLast bit! Repeating for AWS 15...')
-    AWS15_mean_T = np.mean(T_air[:, :, :, 161:163, 182:184].data, axis=(0, 1, 3, 4))
-    AWS15_mean_theta = np.mean(theta[:, :, :, 161:163, 182:184].data, axis=(0, 1, 3, 4))
-    AWS15_mean_q= np.mean(q[:, :, :, 161:163, 182:184].data, axis=(0, 1, 3, 4))
-    altitude = T_air.coord('level_height').points[:40] / 1000
-    var_dict = {'real_lon': real_lon, 'real_lat': real_lat,'lsm': lsm, 'orog': orog, 'altitude': altitude, 'box_T': box_T,
-                'box_theta': box_q, 'AWS14_mean_T': AWS14_mean_T, 'AWS14_mean_theta': AWS14_mean_theta, 'AWS14_mean_q': AWS14_mean_q,
-                'AWS15_mean_T': AWS15_mean_T, 'AWS15_mean_theta': AWS15_mean_theta, 'AWS15_mean_q': AWS15_mean_q,
-                'AWS14_Ts_srs': AWS14_Ts_srs, 'AWS14_Tair_srs': AWS14_Tair_srs, 'AWS15_Ts_srs': AWS15_Ts_srs, 'AWS15_Tair_srs': AWS15_Tair_srs,
-                'T_air': T_air, 'Ts':  Ts, 'q': q, 'theta': theta, 'MSLP': MSLP}#
-    end = time.time()
-    print
-    '\nDone, in {:01d} secs'.format(int(end - start))
-    return var_dict
-
-#Jan_SEB = load_SEB(config = 'lg_t', vars = 'SEB')
-#Jan_mp, constr_lsm, constr_orog = load_mp(config = 'lg_t', vars = 'water paths')
-Jan_met = load_met('lg_t')
-
-def load_AWS(station, period):
-    ## --------------------------------------------- SET UP VARIABLES ------------------------------------------------##
-    ## Load data from AWS 14 and AWS 15 for January 2011
-    print('\nDayum grrrl, you got a sweet AWS...')
-    os.chdir('/data/clivarm/wip/ellgil82/AWS/')
-    for file in os.listdir('/data/clivarm/wip/ellgil82/AWS/'):
-        if fnmatch.fnmatch(file, '%(station)s_Jan_2011*' % locals()):
-            AWS = pd.read_csv(str(file), header = 0)
-            print(AWS.shape)
-    if period == 'January':
-        Jan18 = AWS.loc[(AWS['Day'] <= 31)]# or ((AWS['month'] == 2) * (AWS['Day'] >= 7))]
-    elif period == 'OFCAP':
-        Jan18 = AWS.loc[(AWS['Day'] <= 38)]
-    return Jan18
-
-AWS15_Jan = load_AWS('AWS15', period = 'OFCAP')
-AWS14_SEB_Jan  = load_AWS('AWS14_SEB', period = 'OFCAP')
-
-
-def print_stats():
-    model_mean = pd.DataFrame()
-    for run in Jan_mp:
-        #print('\n\nMean cloud box QCL of %(run)s is: '% locals()+str(np.mean(run['mean_QCL'])) )
-        #print('\n\nMean cloud box QCF of %(run)s is: '% locals()+str(np.mean(run['mean_QCF'])) )
-        #print('\n\nMean QCL at AWS 14 and 15 is ' + str(np.mean(run['AWS14_mean_QCL']))+ ' and ' + str(np.mean(run['AWS15_mean_QCL'])) + ', respectively in %(run)s' % locals())
-        #print ('\n\nMean QCF at AWS 14 and 15 is '+str(np.mean(run['AWS14_mean_QCF']))+' and '+str( np.mean(run['AWS15_mean_QCF']))+', respectively in %(run)s \n\n' % locals())
-        #print('\n\nMean cloud box LWP of %(run)s is: ' % locals() + str(run['box_mean_LWP']))
-        #print('\n\nMean cloud box IWP of %(run)s is: ' % locals() + str(run['box_mean_IWP']))
-        #print('\n\nMean LWP at AWS 14 and 15 is ' + str(run['AWS14_mean_LWP']) + ' and ' + str(run['AWS15_mean_LWP']) + ', respectively in %(run)s' % locals())
-        #print('\n\nMean IWP at AWS 14 and 15 is ' + str(run['AWS14_mean_IWP']) + ' and ' + str(run['AWS15_mean_IWP']) + ', respectively in %(run)s \n\n' % locals())
-        m = pd.DataFrame({'mean QCL': np.mean(run['mean_QCL']), 'mean_QCF': np.mean(run['mean_QCF']), 'AWS 14 QCL': np.mean(run['AWS14_mean_QCL']), 'AWS 15 QCL': np.mean(run['AWS15_mean_QCL']),
-                          'AWS 14 QCF' : np.mean(run['AWS14_mean_QCF']), 'AWS 15 QCF' : np.mean(run['AWS15_mean_QCF']), 'mean LWP': run['box_mean_LWP'], 'mean IWP': run['box_mean_IWP'],
-                          'AWS 14 LWP': run['AWS14_mean_LWP'],  'AWS 14 IWP': run['AWS14_mean_IWP'], 'AWS 15 LWP': run['AWS15_mean_LWP'],  'AWS 15 IWP': run['AWS15_mean_IWP']}, index = [0])
-        model_mean = pd.concat([model_mean, m])
-        means = model_mean.mean(axis=0)
-        print means
-
-#print_stats()
-
-## Hacky fix to deal with iris loading forecast period and forecast time separately
-
-def construct_srs(var_name):
-    i = np.arange(var_name.shape[1])
-    k = var_name
-    series = []
-    for j in i:
-        a = k[:, j]
-        a = np.array(a)
-        series = np.append(series, a)
-    return series
-
-os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/test')
-
-IWP14_srs = construct_srs(Jan_mp['AWS14_mean_IWP'])
-LWP14_srs = construct_srs(Jan_mp['AWS14_mean_LWP'])
-IWP15_srs = construct_srs(Jan_mp['AWS15_mean_IWP'])
-LWP15_srs = construct_srs(Jan_mp['AWS15_mean_LWP'])
-box_IWP_srs = construct_srs(Jan_mp['mean_IWP'])
-box_LWP_srs = construct_srs(Jan_mp['mean_LWP'])
-#AWS14_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'][:,:,165:167, 98:100].data, axis = (2,3)))
-#AWS14_LW_srs = construct_srs(np.mean(Jan_SEB['LW_down'][:,:,165:167, 98:100].data, axis = (2,3)))
-#AWS15_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'][:,:,127:129, 81:83].data, axis = (2,3)))
-#AWS15_LW_srs = construct_srs(np.mean(Jan_SEB['LW_down'][:,:,127:129, 81:83].data, axis = (2,3)))
-#box_LW_srs = construct_srs(np.mean(Jan_SEB['LW_down'].data, axis = (2,3)))
-#box_SW_srs = construct_srs(np.mean(Jan_SEB['SW_down'].data, axis = (2,3)))
-Jan_SEB['SW_down'].coord('time').convert_units('seconds since 1970-01-01 00:00:00')
-#Jan_mp['mean_LWP'].coord('time').convert_units('seconds since 1970-01-01 00:00:00')
-Time_srs = construct_srs(np.swapaxes(Jan_SEB['SW_down'].coord('time').points,0,1))
-Time_srs = matplotlib.dates.num2date(matplotlib.dates.epoch2num(Time_srs))
-
-AWS14_SEB_Jan[AWS14_SEB_Jan['LWin'] < -200] = np.nan
-AWS15_Jan[AWS15_Jan['Lin'] < -200] = np.nan
-
-#AWS15_dif_SW = AWS15_SW_srs - AWS15_Jan['Sin'][12:]
-#AWS15_dif_LW = AWS15_LW_srs - AWS15_Jan['Lin'][12:]
-#AWS14_dif_SW = AWS14_SW_srs - AWS14_SEB_Jan['SWin_corr'][24::2]
-#AWS14_dif_LW = AWS14_LW_srs - AWS14_SEB_Jan['LWin'][24::2]
-
-# Create time series of SEB parameters
-SW_down_srs = construct_srs(Jan_SEB['SW_down'].data)
-SW_up_srs = construct_srs(Jan_SEB['SW_up'].data)
-LW_down_srs = construct_srs(Jan_SEB['LW_down'].data)
-LW_up_srs = construct_srs(Jan_SEB['LW_up'].data)
-SH_srs = construct_srs(Jan_SEB['SH'])
-LH_srs = construct_srs(Jan_SEB['LH'])
-Ts_srs = construct_srs(Jan_SEB['Ts'].data)
-E_srs = (SW_down_srs - SW_up_srs) + (LW_down_srs - LW_up_srs) + LH_srs[:732] + SH_srs[:732]
-melt_srs = np.ma.masked_where(Ts_srs < -0.025, E_srs)
-melt_srs[Ts_srs < -0.025 & E_srs > 0] = 0
-print('melt mean = ' + np.mean(melt_srs))
 
 ## ================================================= PLOTTING ======================================================= ##
 
@@ -1879,7 +1560,7 @@ def boxplot(data):
     plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_'+text_str+'_boxplot.eps', transparent=True)
     plt.show()
 
-boxplot(data = 'SEB')
+#boxplot(data = 'SEB')
 
 
 

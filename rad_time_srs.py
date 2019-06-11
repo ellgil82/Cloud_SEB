@@ -83,15 +83,15 @@ def load_model(var):
 
 
 #t24_vars = load_model('24')
-RA1M_vars = load_model('RA1M_24')
+#RA1M_vars = load_model('RA1M_24')
 RA1M_mod_vars = load_model('RA1M_mod_24')
-RA1T_vars = load_model('RA1T_24')
-RA1T_mod_vars = load_model('RA1T_mod_24')
+#RA1T_vars = load_model('RA1T_24')
+#RA1T_mod_vars = load_model('RA1T_mod_24')
 #fl_av_vars = load_model('fl_av')
-DeMott_vars = load_model('CASIM_24_DeMott')
-Cooper_vars = load_model('CASIM_24')
-ice_off_vars = load_model('CASIM_f152_ice_off')
-model_runs = [RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, Cooper_vars,  ice_off_vars]# fl_av_vars,
+#DeMott_vars = load_model('CASIM_24_DeMott')
+#Cooper_vars = load_model('CASIM_24')
+#ice_off_vars = load_model('CASIM_f152_ice_off')
+#model_runs = [RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, Cooper_vars,  ice_off_vars]# fl_av_vars,
 
 ## Load AWS metadata: data are formatted so that row [0] is the latitude, row [1] is the longitude, and each AWS is in a
 ## separate column, so it can be indexed in the pandas dataframe
@@ -210,7 +210,7 @@ for run, name in model_runs, names:
     Model_SEB_day_AWS14, Model_SEB_day_AWS15, Model_SEB_flight_AWS14, Model_SEB_flight_AWS15, melt_masked_day, melt_masked_flight, \
     obs_SEB_AWS14_flight,  obs_SEB_AWS14_day, obs_melt_AWS14_flight, obs_melt_AWS14_day = calc_SEB(run, times = (68,80))
     AWS14_bias, AWS15_bias = calc_bias(run, times = (68,80), day = False)
-    print '\n\n'+name + ' bias:\n\n'
+    #print '\n\n'+name + ' bias:\n\n'
     print AWS14_bias, AWS15_bias
 
 
@@ -221,7 +221,7 @@ for run, name in model_runs, names:
 rcParams['font.family'] = 'sans-serif'
 rcParams['font.sans-serif'] = ['Segoe UI', 'Helvetica', 'Liberation sans', 'Tahoma', 'DejaVu Sans',
                                'Verdana']
-def plot_Ts():
+def plot_Ts(run):
     fig, ax = plt.subplots(1, 1, figsize=(10, 6))
     plt.setp(ax.spines.values(), linewidth=2, color='dimgrey')
     ax.spines['right'].set_visible(False)
@@ -248,7 +248,7 @@ def plot_Ts():
     plt.savefig('/users/ellgil82/figures/Cloud data/f152/Radiation/AWS14_Ts_RA1M_mod.png', transparent=True)
     plt.show()
 
-plot_Ts()
+#plot_Ts(RA1M_mod_vars)
 
 def E_melt_plot():
     fig, ax = plt.subplots(2,1, figsize = (10,10))
@@ -258,6 +258,7 @@ def E_melt_plot():
         axs.spines['right'].set_visible(False)
         axs.spines['top'].set_visible(False)
         axs.tick_params(axis='both', which='both', labelsize=28, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+        axs.set_ylim(-50,60)
     ax2 = ax[0].twiny()
     ax2.axis('off')
     ax[0].set_xlim(0,96)
@@ -296,7 +297,7 @@ def E_melt_plot():
     plt.savefig('/users/ellgil82/figures/Cloud data/f152/Radiation/AWS14_melt+Etot_RA1M_mod.png', transparent=True)
     plt.show()
 
-E_melt_plot()
+#E_melt_plot()
 
 def total_SEB(run):
     fig, axs = plt.subplots(2, 1, figsize=(22, 22), frameon=False)
@@ -321,13 +322,11 @@ def total_SEB(run):
     axs[0].plot(AWS14_SEB_Jan['Time'][24:], AWS14_SEB_Jan['Hlat'][24:], color='#33a02c', lw=5, label='Latent heat flux')
     axs[0].plot(AWS14_SEB_Jan['Time'][24:], AWS14_SEB_Jan['melt_energy'][24:], color='#f68080', lw=5, label='Melt flux')
     #axs[0].axes.get_xaxis().set_visible(False)
-    axs[0].set_xlim(AWS14_SEB_Jan['Time'].values[24], AWS14_SEB_Jan['Time'].values[-1])
+    axs[0].set_xlim(AWS14_SEB_Jan['Time'].values[24], AWS14_SEB_Jan['Time'].values[47])
     axs[0].axvspan(18.7083, 18.83333, edgecolor='dimgrey', facecolor='dimgrey', alpha=0.5)
-    axs[0].axvline(18.614583, linestyle = ':', lw = 5, color='dimgrey')
-    axs[0].axvline(18.7083, linestyle=':', lw=5, color='dimgrey')
     # Plot model SEB
-    Model_time = run['SW_net'].coord('time')
-    Model_time.convert_units('seconds since 1970-01-01 00:00:00')
+    Model_time = run['LW_net'].coord('time')
+    Model_time.convert_units('seconds since 1969-12-31 23:59:59')
     Model_time = mdates.epoch2num(Model_time.points)
     LH = run['LH']
     SH = run['SH']
@@ -338,12 +337,12 @@ def total_SEB(run):
     axs[1].plot(Model_time[48:], np.mean(run['LW_net'][48:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)].data, axis = (1, 2)), color='#86ad63', lw=5, label='Net longwave flux')
     axs[1].plot(Model_time[48:], np.mean(SH[48:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)], axis = (1, 2)), color='#1f78b4', lw=5, label='Sensible heat flux')
     axs[1].plot(Model_time[48:], np.mean(LH[48:,(AWS14_lon-1):(AWS14_lon+1), (AWS14_lat-1):(AWS14_lat+1)], axis = (1, 2)), color='#33a02c', lw=5, label='Latent heat flux')
-    ax2.plot(melt_masked_day[12:], color='#f68080', lw=5, label='Melt flux')
+    ax2.plot(melt_masked_day[11:], color='#f68080', lw=5, label='Melt flux')
     axs[1].axvspan(Model_time[68], Model_time[80], edgecolor='dimgrey', facecolor='dimgrey', alpha=0.5)
-    axs[1].axvline(Model_time[68], linestyle = ':', lw = 5, color='dimgrey')
-    axs[1].axvline(Model_time[59], linestyle=':', lw=5, color='dimgrey')
+    #axs[1].axvline(Model_time[68], linestyle = ':', lw = 5, color='dimgrey')
+    #axs[1].axvline(Model_time[59], linestyle=':', lw=5, color='dimgrey')
     axs[1].set_xlim(Model_time[48], Model_time[-1])
-    axs[1].set_xticks([Model_time[48], Model_time[59], Model_time[68], Model_time[80], Model_time[-1]])
+    #axs[1].set_xticks([Model_time[48], Model_time[68], Model_time[80], Model_time[-1]])#Model_time[59], 
     lns = [Line2D([0], [0], color='#6fb0d2', linewidth=3),
            Line2D([0], [0], color='#86ad63',  linewidth=3),
            Line2D([0], [0], color='#1f78b4', linewidth=3),
@@ -357,15 +356,15 @@ def total_SEB(run):
     #axs[0].text(x=AWS14_SEB_Jan['Time'].values[2], y=250, s='a', fontsize=44, fontweight='bold', color='dimgrey')
     #axs[1].text(x=Model_time[1], y=250, s='b', fontsize=32, fontweight='bold', color='dimgrey')
     plt.subplots_adjust(left=0.22, top = 0.95, bottom=0.1, right=0.9, hspace = 0.1, wspace = 0.1)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Radiation/AWS14_SEB__RA1M_mod.eps', transparent = True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Radiation/AWS14_SEB_RA1M_mod.png', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Radiation/AWS14_SEB_RA1M_mod_unshifted.eps', transparent = True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Radiation/AWS14_SEB_RA1M_mod_unshifted.png', transparent=True)
     plt.show()
 
 total_SEB(RA1M_mod_vars)
 
 def rad_time_srs():
-    model_runs = [RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, Cooper_vars, DeMott_vars, ice_off_vars, ]#[RA1M_mod_vars]#
-    fig, ax = plt.subplots(len(model_runs),2, sharex='col', figsize=(16,len(model_runs*5)+3), squeeze=False)#(18,8))#
+    model_runs = [RA1M_mod_SEB]#[RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, Cooper_vars, DeMott_vars, ice_off_vars, ]#
+    fig, ax = plt.subplots(len(model_runs),2, sharex='col', figsize=(18,8))#(16,len(model_runs*5)+3), squeeze=False)#
     ax = ax.flatten()
     ax2 = np.empty_like(ax)
     for axs in ax:
@@ -373,18 +372,18 @@ def rad_time_srs():
         plt.setp(axs.spines.values(), linewidth=3, color='dimgrey')
         #[l.set_visible(False) for (w, l) in enumerate(axs.yaxis.get_ticklabels()) if w % 2 != 0]
         #[l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
-        axs.axvline(x = 14.75, color = '#222222', alpha = 0.5, linestyle = ':', linewidth = 3)
-        axs.axvline(x=17, color='#222222', alpha=0.5, linestyle=':', linewidth=3)
-        axs.axvspan(14.75,17, edgecolor = 'dimgrey', facecolor = 'dimgrey', alpha = 0.2,)
-        axs.axvspan(17, 20, edgecolor = 'dimgrey', facecolor='dimgrey', alpha=0.5) #shifted  = 17,20 / normal = 14.75, 17
-        axs.arrow(x=0.4, y=0.95, dx = .4, dy = 0., linewidth = 3, color='k', zorder = 10)
+        #axs.axvline(x = 14.75, color = '#222222', alpha = 0.5, linestyle = ':', linewidth = 3)
+        #axs.axvline(x=17, color='#222222', alpha=0.5, linestyle=':', linewidth=3)
+        #axs.axvspan(14.75,17, edgecolor = 'dimgrey', facecolor = 'dimgrey', alpha = 0.2,)
+        axs.axvspan(15, 17, edgecolor = 'dimgrey', facecolor='dimgrey', alpha=0.5) #shifted  = 17,20 / normal = 14.75, 17
+        #axs.arrow(x=0.4, y=0.95, dx = .4, dy = 0., linewidth = 3, color='k', zorder = 10)
     def my_fmt(x,p):
         return {0}.format(x) + ':00'
     plot = 0
     lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i', 9: 'j', 10: 'k', 11: 'l', 12: 'm', 13: 'n', 14: 'o'}
     for run in model_runs:
         AWS14_flight_mean, AWS14_day_mean, AWS14_Jan = load_AWS('AWS14')
-        AWS15_flight_mean, AWS15_day_mean, AWS15_Jan = load_AWS('AWS15')
+        #AWS15_flight_mean, AWS15_day_mean, AWS15_Jan = load_AWS('AWS15')
         os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/t24/')
         print('\nPLOTTING DIS BIATCH...')
         ## 1st column = downwelling SW. Dashed lines = model, solid = obs. Red = 14, Blue = 15.
@@ -395,7 +394,7 @@ def rad_time_srs():
         ax2[plot].plot(AWS14_Jan['Hour'], AWS14_Jan['Sin'], label='AWS14, observed', linewidth=3, color='darkred')
         #ax[plot].plot(run['LW_down'].coord('time').points, np.mean(run['SW_down'][:,161:163, 182:184].data, axis = (1,2)), label='AWS15, modelled', linewidth=3, linestyle='--',color='darkblue')
         #ax2[plot].plot(AWS15_Jan['Hour'], AWS15_Jan['Sin'], label='AWS15, observed', linewidth=3, color='darkblue')
-        ax[plot].text(x=13, y=750, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
+        ax[plot].text(0.1, 0.85, transform = ax[plot].transAxes, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
         #plt.setp(ax[plot].get_yticklabels()[-1], visible=False)
         ax[plot].set_xlim(12, 23)
         ax[plot].set_ylim(400,800)
@@ -418,17 +417,15 @@ def rad_time_srs():
         #mod15 = ax[plot+1].plot(run['LW_down'].coord('time').points,np.mean(run['LW_down'][:,161:163, 182:184].data, axis = (1,2)), label = 'AWS15, modelled', linewidth = 3, linestyle = '--', color = 'darkblue') ##
         obs14 = ax2[plot+1].plot(AWS14_Jan['Hour'], AWS14_Jan['Lin'], label='AWS14, observed', linewidth=3, color='darkred') ##
         #obs15 = ax2[plot+1].plot(AWS15_Jan['Hour'], AWS15_Jan['Lin'], label='AWS15, observed', linewidth=3, color='darkblue') ##
-        ax[plot+1].text(x=13, y=300, s=lab_dict[plot+1], fontsize=32, fontweight='bold', color='dimgrey')
+        ax[plot+1].text(0.1, 0.85, transform = ax[plot+1].transAxes, s=lab_dict[plot+1], fontsize=32, fontweight='bold', color='dimgrey')
         ax[plot+1].tick_params(axis='both', labelsize=28, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-        #[l.set_visible(False) for (i, l) in enumerate(ax[plot+1].yaxis.get_ticklabels()) if i % 2 != 0]
-        #[l.set_visible(False) for (i, l) in enumerate(ax[plot + 1].xaxis.get_ticklabels()) if i % 2 != 0]
         [w.set_linewidth(2) for w in ax[plot].spines.itervalues()]
         [w.set_linewidth(2) for w in ax[plot+1].spines.itervalues()]
         #ax[plot+1].set_xlim(run['LW_down'].coord('time').points[1], run['LW_down'].coord('time').points[-1])
         #ax2[plot+1].set_xlim(AWS15_Jan['Hour'].values[0], AWS15_Jan['Hour'].values[-1]) ##
         plt.setp(ax2[plot].get_xticklabels(), visible=False)
         plt.setp(ax2[plot+1].get_xticklabels(), visible=False)
-        titles = ['    RA1M','    RA1M', 'RA1M_mod', 'RA1M_mod']#, '     fl_av','     fl_av', '    RA1T', '    RA1T', 'RA1T_mod','RA1T_mod', '   CASIM', '   CASIM']
+        titles = ['RA1M_mod', 'RA1M_mod']#, '    RA1M','    RA1M', '     fl_av','     fl_av', '    RA1T', '    RA1T', 'RA1T_mod','RA1T_mod', '   CASIM', '   CASIM']
         #ax[plot].text(0.83, 1.05, transform=ax[plot].transAxes, s=titles[plot], fontsize=28,
         #              color='dimgrey')
         print('\nDONE!')
@@ -450,9 +447,9 @@ def rad_time_srs():
     fig.text(0.5, 0.04, 'Time (hours)', fontsize=24, fontweight = 'bold', ha = 'center', va = 'center', color = 'dimgrey')
     fig.text(0.08, 0.55, 'Downwelling \nshortwave \nflux \n(W m$^{-2}$)', fontsize=30, ha= 'center', va='center', rotation = 0, color = 'dimgrey')
     fig.text(0.92, 0.55, 'Downwelling \nlongwave \nflux \n(W m$^{-2}$)', fontsize=30, ha='center', va='center', color = 'dimgrey', rotation=0)
-    plt.subplots_adjust(left=0.22, bottom=0.12, right=0.78, top=0.97, wspace=0.15, hspace=0.15)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Radiation/vn11_SEB_time_srs_LWd_SWd_all_runs_shifted_AWS14.png', transparent = True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Radiation/vn11_SEB_time_srs_LWd_SWd_all_runs_shifted_AWS14.eps', transparent = True)
+    plt.subplots_adjust(left=0.22, bottom=0.35, right=0.78, top=0.97, wspace=0.15, hspace=0.15)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Radiation/Downwelling_fluxes_RA1M_mod_unshifted_AWS14.png', transparent = True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Radiation/Downwelling_fluxes_RA1M_mod_unshifted_AWS14.eps', transparent = True)
     plt.show()
 
 rad_time_srs()
@@ -760,5 +757,5 @@ def melt_map():
     plt.savefig('/users/ellgil82/figures/Cloud data/f152/Radiation/melt_map.eps', transparent=True)
     plt.show()
 
-melt_map()
+#melt_map()
 
