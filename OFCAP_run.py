@@ -37,6 +37,48 @@ elif host == 'bsl':
 rcParams['font.family'] = 'sans-serif'
 rcParams['font.sans-serif'] = ['Segoe UI', 'Helvetica', 'Liberation sans', 'Tahoma', 'DejaVu Sans', 'Verdana']
 
+def load_AWS(station):
+    ## --------------------------------------------- SET UP VARIABLES ------------------------------------------------##
+    ## Load data from AWS 14 and AWS 15 for January 2011
+    print('\nDayum grrrl, you got a sweet AWS...')
+    os.chdir('/data/clivarm/wip/ellgil82/AWS/')
+    for file in os.listdir('/data/clivarm/wip/ellgil82/AWS/'):
+        if fnmatch.fnmatch(file, '%(station)s*' % locals()):
+            AWS_srs = pd.read_csv(str(file), header = 0)
+            print(AWS_srs.shape)
+    # Calculate date, given list of years and day of year
+    date_list = compose_date(AWS_srs['year'], days=AWS_srs['day'])
+    AWS_srs['Date'] = date_list
+    # Set date as index
+    AWS_srs.index = AWS_srs['Date']
+    # Calculate actual time from decimal DOY (seriously, what even IS that format?)
+    AWS_srs['time'] = 24*(AWS_srs['Time'] - AWS_srs['day'])
+    case = AWS_srs.loc['2011-01-01':'2011-02-07'] #'2015-01-01':'2015-12-31'
+    print '\nconverting times...'
+    # Convert times so that they can be plotted
+    time_list = []
+    for i in case['time']:
+        hrs = int(i)                 # will now be 1 (hour)
+        mins = int((i-hrs)*60)       # will now be 4 minutes
+        secs = int(0 - hrs*60*60 + mins*60) # will now be 30
+        j = datetime.time(hour = hrs, minute=mins)
+        time_list.append(j)
+    case['Time'] = time_list
+    case['datetime'] = case.apply(lambda r : pd.datetime.combine(r['Date'],r['Time']),1)
+    case['E'] = case['LWnet_corr'] + case['SWnet_corr'] + case['Hlat'] + case['Hsen'] - case['Gs']
+    case['transmissivity'] = case['SWin_corr']/case['SWglobal']
+    case['transmissivity'].replace([np.inf], np.nan, inplace = True) # replace infinite values with nans
+    case['transmissivity'].fillna(value = 0.0, inplace = True) # remove nans
+    if host == 'jasmin':
+        os.chdir('/group_workspaces/jasmin4/bas_climate/users/ellgil82/OFCAP/proc_data/')
+    elif host == 'bsl':
+        os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/proc_data/')
+    return case
+
+AWS14_SEB = load_AWS('AWS14_SEB_2009-2017_norp')
+# Trim down to match model times (t+12 forecasts)
+AWS14_SEB = AWS14_SEB[12:-1]
+
 
 def load_t_srs(var, domain):
     orog = iris.load_cube('OFCAP_orog.nc', 'surface_altitude')
@@ -50,6 +92,7 @@ def load_t_srs(var, domain):
         Tair = iris.load_cube('OFCAP_Tair.nc', 'air_temperature')
         Ts = iris.load_cube('OFCAP_Ts.nc', 'surface_temperature')
         q = iris.load_cube('OFCAP_q.nc', 'specific_humidity') #?
+        #RH = iris.load_cube('OFCAP_RH.nc', 'relative_humidity')
         MSLP = iris.load_cube('OFCAP_MSLP.nc', 'air_pressure_at_sea_level')
         u = iris.load_cube('OFCAP_u_wind.nc', 'eastward_wind')
         v = iris.load_cube('OFCAP_v_wind.nc', 'northward_wind')
@@ -71,6 +114,7 @@ def load_t_srs(var, domain):
             q_srs = np.ma.masked_array(q[:-1,0,:,:].data, mask = np.broadcast_to(Larsen_mask, q[:,0,:,:].shape)).mean(axis = (1,2))
             u_srs = np.ma.masked_array(u[:-1,0,:,:].data, mask = np.broadcast_to(Larsen_mask, u[:,0,:,:].shape)).mean(axis = (1,2))
             v_srs = np.ma.masked_array(v[:-1,0,:,:].data, mask = np.broadcast_to(Larsen_mask, v[:,0,:,:].shape)).mean(axis = (1,2))
+            #RH_srs = np.ma.masked_array(RH[:-1,0,:,:].data, mask = np.broadcast_to(Larsen_mask, RH[:,0,:,:].shape)).mean(axis = (1,2))
             ff_srs = np.sqrt((u_srs ** 2) + (v_srs ** 2))
         elif domain == 'AWS 14' or domain == 'AWS14':
             Tair_srs = np.mean(Tair[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
@@ -79,6 +123,7 @@ def load_t_srs(var, domain):
             MSLP_srs = np.mean(MSLP[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
             u_srs = np.mean(u[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
             v_srs = np.mean(v[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
+            #RH_srs = np.mean(RH[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
             ff_srs = np.sqrt((u_srs ** 2) + (v_srs ** 2))
         elif domain == 'AWS 15' or domain == 'AWS15':
             Tair_srs = np.mean(Tair[:-1, 0, 161:163, 182:184].data, axis=(1, 2))
@@ -87,8 +132,9 @@ def load_t_srs(var, domain):
             MSLP_srs = np.mean(q[:-1, 0, 161:163, 182:184].data, axis=(1, 2))
             u_srs = np.mean(u[:-1, 0, 161:163, 182:184].data, axis=(1, 2))
             v_srs = np.mean(v[:-1, 0, 161:163, 182:184].data, axis=(1, 2))
+            #RH_srs = np.mean(RH[:-1, 0, 161:163, 182:184].data, axis=(1, 2))
             ff_srs = np.sqrt((u_srs**2)+(v_srs**2))
-        var_dict = {'Tair_srs': Tair_srs-273.15, 'Ts_srs': Ts_srs-273.15, 'u_srs': u_srs, 'v_srs': v_srs, 'q_srs': q_srs,
+        var_dict = {'Tair_srs': Tair_srs-273.15, 'Ts_srs': Ts_srs-273.15, 'u_srs': u_srs, 'v_srs': v_srs, 'q_srs': q_srs*1000,
                     'ff_srs': ff_srs, 'MSLP_srs': MSLP_srs, 'orog': orog, 'lsm': lsm, 'Model_time': Model_time}
     elif var == 'SEB':
         daymn_SWdown = iris.load_cube('OFCAP_SWdown.nc', 'surface_downwelling_shortwave_flux_in_air')
@@ -101,8 +147,8 @@ def load_t_srs(var, domain):
         daymn_HS = iris.load_cube('OFCAP_HS.nc', 'surface_upward_sensible_heat_flux') #../netcdfs/
         Ts = iris.load_cube('OFCAP_Ts.nc', 'surface_temperature')
         Ts.convert_units('celsius')
-        Etot = iris.load_cube('OFCAP_Etot.nc', 'Net short wave radiation flux')
-        Model_time = Etot.coord('time')[:-1]
+        Etot = daymn_LWnet.data + daymn_SWnet.data - daymn_HL.data - daymn_HS.data
+        Model_time = Ts.coord('t')[:-1]
         Model_time = Model_time.units.num2date(Model_time.points)
         if domain == 'ice shelf' or domain == 'Larsen C':
             # Create Larsen mask
@@ -111,7 +157,7 @@ def load_t_srs(var, domain):
             Larsen_mask[35:260, 90:230] = lsm_subset
             Larsen_mask[orog.data > 25] = 0
             Larsen_mask = np.logical_not(Larsen_mask)
-            SWdown_srs = np.ma.masked_array(daymn_SWdown[-1:, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, daymn_SWdown[:-1, 0, :, :].shape)).mean(axis=(1, 2))
+            SWdown_srs = np.ma.masked_array(daymn_SWdown[:-1, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, daymn_SWdown[:-1, 0, :, :].shape)).mean(axis=(1, 2))
             SWup_srs = np.ma.masked_array(daymn_SWup[:-1, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, daymn_SWup[:-1, 0, :, :].shape)).mean(axis=(1, 2))
             SWnet_srs = np.ma.masked_array(daymn_SWnet[:-1, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, daymn_SWnet[:-1, 0, :, :].shape)).mean(axis=(1, 2))
             LWnet_srs = np.ma.masked_array(daymn_LWnet[:-1, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, daymn_LWnet[:-1, 0, :, :].shape)).mean(axis=(1, 2))
@@ -119,7 +165,8 @@ def load_t_srs(var, domain):
             LWup_srs = np.ma.masked_array(daymn_LWup[:-1, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, daymn_LWup[:-1, 0, :, :].shape)).mean(axis=(1, 2))
             HL_srs = np.ma.masked_array(daymn_HL[:-1, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, daymn_HL[:-1, 0, :, :].shape)).mean(axis=(1, 2))
             HS_srs = np.ma.masked_array(daymn_HS[:-1, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, daymn_HS[:-1, 0, :, :].shape)).mean(axis=(1, 2))
-            Etot_srs = np.ma.masked_array(Etot[:-1, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, Etot[:-1, 0, :, :].shape)).mean(axis=(1, 2))
+            Etot_srs = np.ma.masked_array(Etot[:-1, 0, :, :], mask=np.broadcast_to(Larsen_mask, Etot[:-1, 0, :, :].shape)).mean(axis=(1, 2))
+            Etot_srs = Etot_srs - AWS14_SEB['Gs'].values
             Ts_srs = np.ma.masked_array(Ts[:-1, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, Ts[:-1, 0, :, :].shape)).mean(axis=(1, 2))
             melt_srs = np.copy(Etot_srs)
             melt_srs[Ts_srs < -0.025] = 0
@@ -132,7 +179,8 @@ def load_t_srs(var, domain):
             LWup_srs = np.mean(daymn_LWup[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
             HL_srs = np.mean(daymn_HL[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
             HS_srs = np.mean(daymn_HS[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
-            Etot_srs = np.mean(Etot[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
+            Etot_srs = np.mean(Etot[:-1, 0, 199:201, 199:201], axis=(1, 2))
+            Etot_srs = Etot_srs - AWS14_SEB['Gs'].values
             Ts_srs = np.mean(Ts[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
             melt_srs = np.copy(Etot_srs)
             melt_srs[Ts_srs < -0.025] = 0
@@ -145,12 +193,14 @@ def load_t_srs(var, domain):
             LWup_srs = np.mean(daymn_LWup[:-1, 0,161:163, 182:184].data, axis=(1, 2))
             HL_srs = np.mean(daymn_HL[:-1, 0,161:163, 182:184].data, axis=(1, 2))
             HS_srs = np.mean(daymn_HS[:-1, 0,161:163, 182:184].data, axis=(1, 2))
-            Etot_srs = np.mean(Etot[:-1, 0, 161:163, 182:184].data, axis=(1, 2))
+            Etot_srs = np.mean(Etot[:-1, 0, 161:163, 182:184], axis=(1, 2))
+            Etot_srs = Etot_srs - AWS14_SEB['Gs'].values
             Ts_srs = np.mean(Ts[:-1, 0, 161:163, 182:184].data, axis=(1, 2))
             melt_srs = np.copy(Etot_srs)
             melt_srs[Ts_srs < -0.025] = 0
         HL_srs = 0 - HL_srs
         HS_srs = 0 - HS_srs
+        melt_srs[melt_srs < 0] = 0
         var_dict = {'SWnet_srs': SWnet_srs, 'SWdown_srs': SWdown_srs, 'SWup_srs': SWup_srs, 'LWnet_srs': LWnet_srs,
                     'LWdown_srs': LWdown_srs, 'LWup_srs': LWup_srs, 'HL_srs': HL_srs, 'HS_srs': HS_srs, 'Etot_srs': Etot_srs,
                     'melt_srs': melt_srs, 'orog': orog, 'lsm': lsm, 'Ts_srs': Ts_srs, 'Model_time': Model_time}
@@ -158,12 +208,13 @@ def load_t_srs(var, domain):
 
 
 os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/BL_run/')
-#BL_SEB_dict = load_t_srs(var = 'SEB', domain = 'AWS14')
+BL_SEB_dict = load_t_srs(var = 'SEB', domain = 'AWS14')
 #BL_met_dict = load_t_srs(var = 'met', domain = 'AWS14')
 
 os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/netcdfs/')
-#ctrl_SEB_dict = load_t_srs(var = 'SEB', domain = 'AWS14')
+ctrl_SEB_dict = load_t_srs(var = 'SEB', domain = 'AWS 14')
 #ctrl_met_dict = load_t_srs(var = 'met', domain = 'AWS14')
+
 
 def time_srs_plot():
     fig, ax = plt.subplots(figsize = (30,14))
@@ -189,16 +240,6 @@ def plot_profile(var, domain, plot_obs):
     elif var == 'QCF' or var == 'QCL' or var == 'q':
         profile_var.convert_units('g kg-1')
         units = '(g kg$^{-1}$)'
-    try:
-        altitude = profile_var.coord('altitude').points
-    except iris.exceptions.CoordinateNotFoundError:
-        # Take orography data and use it to create hybrid height factory instance
-        auxcoord = iris.coords.AuxCoord(orog.data, standard_name=str(orog.standard_name), long_name="orography", var_name="orog", units=orog.units)
-        profile_var.add_aux_coord(auxcoord, (np.ndim(profile_var) - 2, np.ndim(profile_var) - 1))
-        profile_var.coord('Hybrid height').convert_units('metres')
-        factory = iris.aux_factory.HybridHeightFactory(delta=profile_var.coord("Hybrid height"), orography=profile_var.coord("surface_altitude"))
-        profile_var.add_aux_factory(factory)  # this should produce a 'derived coordinate', 'altitude' (test this with >>> print theta)
-        altitude = profile_var.coord('altitude').points[:, 0,0]
     if var == 'QCF':
         profile_var.data[profile_var.data <= 0.0001] = np.nan # minimum observed in-cloud mass fraction threshold
     elif var == 'QCL':
@@ -460,46 +501,6 @@ def correlations():
     corr_SWd_IWP = iris.load_cube('timcor_SWd_v_IWP.nc')
 
 
-
-def load_AWS(station):
-    ## --------------------------------------------- SET UP VARIABLES ------------------------------------------------##
-    ## Load data from AWS 14 and AWS 15 for January 2011
-    print('\nDayum grrrl, you got a sweet AWS...')
-    os.chdir('/data/clivarm/wip/ellgil82/AWS/')
-    for file in os.listdir('/data/clivarm/wip/ellgil82/AWS/'):
-        if fnmatch.fnmatch(file, '%(station)s*' % locals()):
-            AWS_srs = pd.read_csv(str(file), header = 0)
-            print(AWS_srs.shape)
-    # Calculate date, given list of years and day of year
-    date_list = compose_date(AWS_srs['year'], days=AWS_srs['day'])
-    AWS_srs['Date'] = date_list
-    # Set date as index
-    AWS_srs.index = AWS_srs['Date']
-    # Calculate actual time from decimal DOY (seriously, what even IS that format?)
-    AWS_srs['time'] = 24*(AWS_srs['Time'] - AWS_srs['day'])
-    case = AWS_srs.loc['2011-01-01':'2011-02-07'] #'2015-01-01':'2015-12-31'
-    print '\nconverting times...'
-    # Convert times so that they can be plotted
-    time_list = []
-    for i in case['time']:
-        hrs = int(i)                 # will now be 1 (hour)
-        mins = int((i-hrs)*60)       # will now be 4 minutes
-        secs = int(0 - hrs*60*60 + mins*60) # will now be 30
-        j = datetime.time(hour = hrs, minute=mins)
-        time_list.append(j)
-    case['Time'] = time_list
-    case['datetime'] = case.apply(lambda r : pd.datetime.combine(r['Date'],r['Time']),1)
-    case['E'] = case['LWnet_corr'] + case['SWnet_corr'] + case['Hlat'] + case['Hsen'] - case['Gs']
-    if host == 'jasmin':
-        os.chdir('/group_workspaces/jasmin4/bas_climate/users/ellgil82/OFCAP/proc_data/')
-    elif host == 'bsl':
-        os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/proc_data/')
-    return case
-
-AWS14_SEB = load_AWS('AWS14_SEB_2009-2017_norp')
-# Trim down to match model times (t+12 forecasts)
-AWS14_SEB = AWS14_SEB[12:-1]
-
 def calc_BL_bias():
     AWS_var = load_AWS('AWS14_SEB_2009-2017_norp')
     AWS_var = AWS_var[12:-1]
@@ -540,7 +541,7 @@ def calc_bias():
     # Forecast error
     AWS_var = load_AWS('AWS14_SEB_2009-2017_norp')
     AWS_var = AWS_var[12:-1]
-    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/BL_run/')
+    os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/netcdfs/')
     SEB_dict = load_t_srs(var='SEB', domain='AWS14')
     met_dict = load_t_srs(var = 'met', domain = 'AWS14')
     surf_met_obs = [AWS_var['Tsobs'], AWS_var['Tair_2m'], AWS_var['qair_2m'], AWS_var['FF_10m'], AWS_var['SWin_corr'], AWS_var['LWin'], AWS_var['SWnet_corr'], AWS_var['LWnet_corr'], AWS_var['Hsen'], AWS_var['Hlat'], AWS_var['E'], AWS_var['melt_energy']]#, AWS_var['melt_energy']]
@@ -575,7 +576,7 @@ def calc_bias():
         print(idx[i])
         print('\nr2 = %s\n' % r2)
     print('RMSE/bias = \n\n\n')
-    df.to_csv('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/OFCAP_BL_bias_and_RMSE.csv')
+    df.to_csv('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/OFCAP_bias_and_RMSE_Gs.csv')
     print(df)
 
 #calc_bias()
@@ -589,6 +590,32 @@ mod_melt_nonzero = np.copy(ctrl_SEB_dict['melt_srs'])
 mod_melt_nonzero[mod_melt_nonzero == 0.] = np.nan
 mod_nonz_mn = np.nanmean(mod_melt_nonzero)
 nonz_bias = np.nanmean(mod_melt_nonzero - melt_nonzero)
+
+
+
+# Calculate melt frequency
+# How often is Ts at melting point?
+ctrl_Ts_freq = sum(1 for i in ctrl_SEB_dict['Ts_srs'] if i >= -0.026)
+ctrl_melt_freq = sum(1 for i in ctrl_SEB_dict['melt_srs'] if i > 0)
+BL_Ts_freq = sum(1 for i in BL_SEB_dict['Ts_srs'] if i >= -0.026)
+BL_melt_freq = sum(1 for i in BL_SEB_dict['melt_srs'] if i > 0)
+BL_Etot_freq = sum(1 for i in BL_SEB_dict['Etot_srs'] if i > 0)
+ctrl_Etot_freq = sum(1 for i in ctrl_SEB_dict['Etot_srs'] if i > 0)
+# Divide by number of timesteps
+ctrl_Ts_freq = np.float(ctrl_Ts_freq)/len(ctrl_SEB_dict['Ts_srs'])
+ctrl_melt_freq = np.float(ctrl_melt_freq)/len(ctrl_SEB_dict['melt_srs'])
+BL_Ts_freq = np.float(BL_Ts_freq)/len(BL_SEB_dict['Ts_srs'])
+BL_melt_freq = np.float(BL_melt_freq)/len(BL_SEB_dict['melt_srs'])
+obs_Ts_freq = sum(1 for i in AWS14_SEB['Tsobs'] if i == 0)
+obs_Ts_freq = np.float(obs_Ts_freq)/len(AWS14_SEB['Tsobs'])
+obs_melt_freq = sum(1 for i in AWS14_SEB['melt_energy'] if i > 0)
+obs_melt_freq = np.float(obs_melt_freq)/len(AWS14_SEB['melt_energy'])
+obs_Etot_freq = sum(1 for i in AWS14_SEB['E'] if i > 0)
+obs_Etot_freq = np.float(obs_Etot_freq)/len(AWS14_SEB['E'])
+ctrl_Etot_freq = np.float(ctrl_Etot_freq)/len(ctrl_SEB_dict['Etot_srs'])
+BL_Etot_freq = np.float(BL_Etot_freq)/len(BL_SEB_dict['Etot_srs'])
+
+
 
 
 def calc_melt(AWS_vars, model_vars):
@@ -647,15 +674,15 @@ def plot_BL_v_ctrl():
 def melt_plot():
     fig, ax = plt.subplots(figsize = (18,8))
     ax2 = ax.twiny()
-    ax.plot(ctrl_SEB_dict['Model_time'], BL_SEB_dict['melt_srs'], lw = 2, color = '#f68080', label = 'Modelled melt flux', zorder = 1)#color = '#1f78b4'
-    #ax.plot(BL_SEB_dict['Model_time'], BL_SEB_dict['melt_srs'], lw=2, color='#33a02c', label='BL run',zorder=1)
-    ax2.plot(AWS14_SEB['datetime'], AWS14_SEB['melt_energy'], lw=2, color='k', label='observed melt flux', zorder = 2)
+    ax.plot(ctrl_SEB_dict['Model_time'], ctrl_SEB_dict['melt_srs'], lw = 2, color = '#1f78b4', label = 'ctrl', zorder = 1)#color = '#f68080',
+    ax.plot(BL_SEB_dict['Model_time'], BL_SEB_dict['melt_srs'], lw=2, color='#33a02c', label='BL run',zorder=1)
+    ax2.plot(AWS14_SEB['datetime'], AWS14_SEB['melt_energy'], lw=2, color='k', label='observed net flux', zorder = 2)
     ax2.set_xlim(AWS14_SEB['datetime'][0], AWS14_SEB['datetime'][-1])
     ax.set_xlim(BL_SEB_dict['Model_time'][0], BL_SEB_dict['Model_time'][-1])
     days = mdates.DayLocator(interval=1)
     dayfmt = mdates.DateFormatter('%d %b')
     ax.set_ylim(0, 200)
-    ax.set_ylabel('Melt flux\n(W m$^{-2}$)', rotation = 0, fontsize = 36, labelpad = 100, color = 'dimgrey')
+    ax.set_ylabel('$E_{melt}$ \n(W m$^{-2}$)', rotation = 0, fontsize = 36, labelpad = 100, color = 'dimgrey')
     ax2.axis('off')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -666,10 +693,9 @@ def melt_plot():
     ax.xaxis.set_major_formatter(dayfmt)
     #Legend
     lns = [Line2D([0],[0], color='k', linewidth = 2.5),
-           Line2D([0],[0], color = '#f68080', linewidth = 2.5)]
-           #Line2D([0],[0], color =  '#1f78b4', linewidth = 2.5),
-           #Line2D([0],[0], color =  '#33a02c', linewidth = 2.5)]
-    labs = ['Observed melt flux', 'Modelled melt flux']# 'ctrl run', 'BL run']
+           Line2D([0],[0], color =  '#1f78b4', linewidth = 2.5),
+           Line2D([0],[0], color =  '#33a02c', linewidth = 2.5)]          #Line2D([0],[0], color = '#f68080', linewidth = 2.5)]
+    labs = ['Observed melt flux', 'ctrl run', 'BL run']#['Observed melt flux', 'Modelled melt flux']#
     lgd = ax2.legend(lns, labs, bbox_to_anchor=(0.55, 1.1), loc=2, fontsize=28)
     frame = lgd.get_frame()
     frame.set_facecolor('white')
@@ -677,13 +703,14 @@ def melt_plot():
         plt.setp(ln, color='dimgrey')
     lgd.get_frame().set_linewidth(0.0)
     plt.subplots_adjust(left = 0.22, right = 0.95)
-    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_melt_BL.png', transparent = True)
-    #if host == 'bsl':
-    #    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_melt_BL_v_ctrl.png', transparent = True)
-    #    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_melt_BL_v_ctrl.eps', transparent=True)
+    #plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_melt_BL.png', transparent = True)
+    if host == 'bsl':
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_ctrl_vs_BL_melt.png', transparent = True)
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_ctrl_vs_BL_melt.eps', transparent=True)
     plt.show()
 
 #melt_plot()
+
 title_dict = {'SWin_corr': 'SW$_{\downarrow}$',
               'LWin': 'LW$_{\downarrow}$',
               'SWnet_corr': 'SW$_{net}$',
@@ -692,7 +719,10 @@ title_dict = {'SWin_corr': 'SW$_{\downarrow}$',
               'Hsen': 'H$_{S}$',
               'E': 'E$_{tot}$',
               'melt_energy': 'E$_{melt}$',
-              'Cloudcover': 'Cloud cover'}
+              'Cloudcover': 'Cloud cover',
+              'SWdown_srs': 'SW$_{\downarrow}$',
+              'LWdown_srs': 'LW$_{\downarrow}$',
+              'melt_srs': 'E$_{melt}$'}
 
 col_dict = {'SWin_corr': '#DC143C',
               'LWin': '#EA580F',
@@ -703,40 +733,70 @@ col_dict = {'SWin_corr': '#DC143C',
               'E': '#222222',  #change this!
               'melt_energy': '#f68080'}
 
-def flux_plot(flux, AWS_flux):
+def flux_plot(flux, AWS_flux, which):
     fig, ax = plt.subplots(figsize = (18,8), sharex = True)
+    ax2 = ax.twinx()
+    ax2.axis('off')
+    min_mod, min_obs = np.min(BL_SEB_dict[flux]), np.min(AWS14_SEB[AWS_flux].values)
+    max_mod, max_obs = np.max(BL_SEB_dict[flux]), np.max(AWS14_SEB[AWS_flux].values)
+    ax.set_ylim(min(min_mod, min_obs), max(max_mod, max_obs))
+    if which == 'BL':
+        ax.plot(BL_SEB_dict['Model_time'], BL_SEB_dict[flux], color=col_dict[AWS_flux],  marker='o',   lw=2, label='BL run') #linestyle='--', marker='^'
+        ax2.plot(AWS14_SEB['datetime'], AWS14_SEB[AWS_flux], color='k', lw=2, label='Observed flux')
+    elif which == 'ctrl':
+        ax.plot(ctrl_SEB_dict['Model_time'], ctrl_SEB_dict[flux], color=col_dict[AWS_flux], marker='o', lw=2, label='ctrl run') #linestyle='--',
+        ax2.plot(AWS14_SEB['datetime'], AWS14_SEB[AWS_flux], color = 'k', lw = 2, label = 'Observed flux')
+    elif which == 'both':
+        ax.plot(ctrl_SEB_dict['Model_time'], ctrl_SEB_dict[flux],  color='#1f78b4',  lw=2, label='ctrl run')#marker='o',
+        ax.plot(BL_SEB_dict['Model_time'], BL_SEB_dict[flux],color='#33a02c',  lw=2, label='BL run')#marker='x',
+        ax2.plot(AWS14_SEB['datetime'], AWS14_SEB[AWS_flux], color='k', lw=2, label='Observed flux')
+        ax2.set_ylim(ax.get_ylim())
     #ax.plot(BL_SEB_dict['Model_time'], BL_mod[flux], color='#33a02c',  lw=2, label='BL run') #linestyle='--',
-    ax.plot(ctrl_SEB_dict['Model_time'], BL_mod[flux], color=col_dict[AWS_flux],  lw=2, label='ctrl run') #linestyle='--',
-    ax.plot(AWS14_SEB['datetime'], AWS14_SEB[AWS_flux], lw=2, color='k', zorder = 2)
-    ax.set_xlim(AWS14_SEB['datetime'][0], AWS14_SEB['datetime'][-1])
+    #ax.plot(ctrl_SEB_dict['Model_time'], BL_mod[flux], color=col_dict[AWS_flux],  lw=2, label='ctrl run') #linestyle='--',
+    #ax.plot(AWS14_SEB['datetime'], AWS14_SEB[AWS_flux], lw=2, color='k', zorder = 2)
+    ax2.set_xlim(AWS14_SEB['datetime'][0], AWS14_SEB['datetime'][-1])
     days = mdates.DayLocator(interval=1)
     dayfmt = mdates.DateFormatter('%d %b')
     #ax.set_ylim(-50,50)
-    ax.set_ylabel(title_dict[AWS_flux] + '\n bias (W m$^{-2}$)', rotation = 0, fontsize = 36, labelpad = 100, color = 'dimgrey')
+    ax.set_ylabel(title_dict[AWS_flux] + '\n(W m$^{-2}$)', rotation = 0, fontsize = 36, labelpad = 100, color = 'dimgrey')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
     ax.tick_params(axis='both', which='both', labelsize=36, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-    [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
+    #[l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
     [l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
     ax.xaxis.set_major_formatter(dayfmt)
     #Legend
-    lns = [Line2D([0],[0], color='k', linewidth = 2.5),
-           Line2D([0], [0], color=col_dict[AWS_flux], linewidth=2.5),]
+    if which != 'both':
+        lns = [Line2D([0],[0], color='k', linewidth = 2.5),
+               Line2D([0], [0], color=col_dict[AWS_flux], marker='o',  linewidth=2.5),]
+        labs = ['Observed flux', 'Modelled flux']
+    else:
+        lns = [Line2D([0], [0], color='k', linewidth=2.5),
+               Line2D([0], [0], color='#1f78b4', linewidth=2.5),
+               Line2D([0], [0], color='#33a02c', linewidth=2.5)]  # Line2D([0],[0], color = '#f68080', linewidth = 2.5)]
+        labs = ['Observed flux', 'ctrl run', 'BL run']  # ['Observed melt flux', 'Modelled melt flux']#
            #Line2D([0],[0], color =  '#33a02c', linewidth = 2.5)]
-    labs = ['Observed flux', 'Modelled flux']#, 'BL run']# ['Observed LW$_{\downarrow}$', 'Modelled LW$_{\downarrow}$']
-    lgd = ax.legend(lns, labs, bbox_to_anchor=(0.65, 1.1), loc=2, fontsize=28)
+    lgd = ax.legend(lns, labs, bbox_to_anchor=(0.65, 1.33), loc=2, fontsize=28)
     frame = lgd.get_frame()
     frame.set_facecolor('white')
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey')
     lgd.get_frame().set_linewidth(0.0)
-    plt.subplots_adjust(left = 0.22, right = 0.95)
+    plt.subplots_adjust(left=0.22, top=0.78, right=0.95)
     if host == 'bsl':
-        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/BL/OFCAP_BL_'+AWS_flux_names[j]+'.png', transparent = True)
-        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/BL/OFCAP_BL_'+AWS_flux_names[j]+'.eps', transparent=True)
-    #plt.show()
+        if which == 'BL':
+            plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/BL/OFCAP_BL_'+AWS_flux+'.png', transparent=True)
+            plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/BL/OFCAP_BL_'+AWS_flux+'.eps', transparent=True)
+        elif which == 'ctrl':
+            plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_ctrl_'+AWS_flux+'.png', transparent=True)
+            plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_ctrl_'+AWS_flux+'.eps', transparent=True)
+        elif which == 'both':
+            plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_ctrl_vs_BL_'+AWS_flux+'.png', transparent=True)
+            plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_ctrl_vs_BL_'+AWS_flux+'.eps', transparent=True)
+    plt.show()
 
+#flux_plot('Etot_srs', AWS_flux = 'E', which = 'both')
 
 
 def flux_bias_plot(flux, AWS_flux):
@@ -775,9 +835,12 @@ def flux_bias_plot(flux, AWS_flux):
 def Ts_plot(which):
     fig, ax = plt.subplots(figsize = (18,8), sharex = True)
     if which == 'BL':
-        ax.plot(BL_SEB_dict['Model_time'], BL_SEB_dict['Ts_srs'], color='darkred',  lw=2, label='BL run') #linestyle='--',
+        ax.plot(BL_SEB_dict['Model_time'], BL_SEB_dict['Ts_srs'], color='darkred',  marker='o',   lw=2, label='BL run') #linestyle='--', marker='^'
     elif which == 'ctrl':
-        ax.plot(ctrl_SEB_dict['Model_time'], ctrl_SEB_dict['Ts_srs'], color='darkred',  lw=2, label='ctrl run') #linestyle='--',
+        ax.plot(ctrl_SEB_dict['Model_time'], ctrl_SEB_dict['Ts_srs'], color='darkred',  marker='o', lw=2, label='ctrl run') #linestyle='--',
+    elif which == 'both':
+        ax.plot(ctrl_SEB_dict['Model_time'], ctrl_SEB_dict['Ts_srs'], color='#1f78b4',  lw=2, label='ctrl run')#marker='o',
+        ax.plot(BL_SEB_dict['Model_time'], BL_SEB_dict['Ts_srs'], color='#33a02c',  lw=2, label='BL run')#marker='x',
     ax.plot(AWS14_SEB['datetime'], AWS14_SEB['Tsobs'], lw=2, color='k', zorder = 2)
     ax.set_xlim(AWS14_SEB['datetime'][0], AWS14_SEB['datetime'][-1])
     days = mdates.DayLocator(interval=1)
@@ -792,17 +855,23 @@ def Ts_plot(which):
     [l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
     ax.xaxis.set_major_formatter(dayfmt)
     #Legend
-    lns = [Line2D([0],[0], color='k', linewidth = 2.5),
-           Line2D([0], [0], color='darkred', linewidth=2.5),]
+    if which != 'both':
+        lns = [Line2D([0],[0], color='k', linewidth = 2.5),
+               Line2D([0], [0], color='darkred', marker='o',  linewidth=2.5),]
+        labs = ['Observed T$_{S}$', 'Modelled T$_{S}$']
+    else:
+        lns = [Line2D([0], [0], color='k', linewidth=2.5),
+               Line2D([0], [0], color='#1f78b4', linewidth=2.5),
+               Line2D([0], [0], color='#33a02c', linewidth=2.5)]  # Line2D([0],[0], color = '#f68080', linewidth = 2.5)]
+        labs = ['Observed T$_{S}$', 'ctrl run', 'BL run']  # ['Observed melt flux', 'Modelled melt flux']#
            #Line2D([0],[0], color =  '#33a02c', linewidth = 2.5)]
-    labs = ['Observed flux', 'Modelled flux']#, 'BL run']# ['Observed LW$_{\downarrow}$', 'Modelled LW$_{\downarrow}$']
-    lgd = ax.legend(lns, labs, bbox_to_anchor=(0.65, 1.1), loc=2, fontsize=28)
+    lgd = ax.legend(lns, labs, bbox_to_anchor=(0.65, 1.33), loc=2, fontsize=28)
     frame = lgd.get_frame()
     frame.set_facecolor('white')
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey')
     lgd.get_frame().set_linewidth(0.0)
-    plt.subplots_adjust(left = 0.22, right = 0.95)
+    plt.subplots_adjust(left = 0.22, top = 0.78, right = 0.95)
     if host == 'bsl':
         if which == 'BL':
             plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/BL/OFCAP_BL_Ts.png', transparent = True)
@@ -810,21 +879,27 @@ def Ts_plot(which):
         elif which == 'ctrl':
             plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_ctrl_Ts.png', transparent = True)
             plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_ctrl_Ts.eps', transparent=True)
+        elif which == 'both':
+            plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_ctrl_vs_BL_Ts.png', transparent = True)
+            plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_ctrl_vs_BL_Ts.eps', transparent=True)
     plt.show()
 
 #Ts_plot(which = 'ctrl')
 
 #AWS_flux_names = ['SWin_corr','LWin','SWnet_corr','LWnet_corr','Hsen','Hlat','E','melt_energy']
-#mod_flux_names = ['SWdown_srs','LWdown_srs','SWnet_srs','LWnet_srs','HS_srs','HL_srs','Etot_srs','melt_srs']
+mod_flux_names = ['SWdown_srs','LWdown_srs','SWnet_srs','LWnet_srs','HS_srs','HL_srs','Etot_srs','melt_srs']
+
+#for j in mod_flux_names:
+#    model_difs = BL_SEB_dict[j] - ctrl_SEB_dict[j]
+#    plt.plot(model_difs)
+#    plt.show()
+
+
+AWS_flux_names = ['SWin_corr','LWin','SWnet_corr','LWnet_corr','Hsen','Hlat','E','melt_energy']
+mod_flux_names = ['SWdown_srs','LWdown_srs','SWnet_srs','LWnet_srs','HS_srs','HL_srs','Etot_srs','melt_srs']
 
 #for j in range(len(mod_flux_names)):
-#    flux_bias_plot(flux = j, AWS_flux = AWS_flux_names[j])
-
-#AWS_flux_names = ['SWin_corr','LWin','SWnet_corr','LWnet_corr','Hsen','Hlat','E','melt_energy']
-#mod_flux_names = ['SWdown_srs','LWdown_srs','SWnet_srs','LWnet_srs','HS_srs','HL_srs','Etot_srs','melt_srs']
-
-#for j in range(len(mod_flux_names)):
-#    flux_plot(flux = j, AWS_flux = AWS_flux_names[j])
+#    flux_plot(flux = j, AWS_flux = AWS_flux_names[j], which = 'both')
 
 
 def remove_diurnal_cyc(data):
@@ -841,30 +916,36 @@ def remove_diurnal_cyc(data):
     data = (data - diur).reshape(nt, ny, nx)
     return data, day_cyc
 
-MSLP = iris.load_cube('OFCAP_MSLP.nc', 'air_pressure_at_sea_level')
-MSLP.convert_units('hPa')
-MSLP, diur_MSLP
+#MSLP = iris.load_cube('OFCAP_MSLP.nc', 'air_pressure_at_sea_level')
+#MSLP.convert_units('hPa')
+#MSLP, diur_MSLP
 
-Tair = iris.load_cube('OFCAP_Tair.nc', 'air_temperature')
-Tair_mn, Tair_diur = remove_diurnal_cyc(Tair)
+#Tair = iris.load_cube('OFCAP_Tair.nc', 'air_temperature')
+#Tair_mn, Tair_diur = remove_diurnal_cyc(Tair)
 
+#ctrl_SW = iris.load_cube('OFCAP_SWdown.nc', 'surface_downwelling_shortwave_flux_in_air')
+#ctrl_SW, ctrl_SW_diur = remove_diurnal_cyc(ctrl_SW)
 
-def obs_correl_scatter(x_var, y_var):
-    slope, intercept, r2, p, sterr = scipy.stats.linregress(AWS14_SEB[x_var], AWS14_SEB[y_var])
-    fig, ax = plt.subplots(1,1, figsize = (8,8))
-    ax.scatter(AWS14_SEB[x_var], AWS14_SEB[y_var], color = '#f68080')
+def correl_scatter(x_var, y_var, which):
+    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.set_xlabel(title_dict[x_var], fontsize = '32', color = 'dimgrey', rotation = 0, labelpad = 50)
     ax.set_ylabel(title_dict[y_var], fontsize = '32', color = 'dimgrey', rotation = 0, labelpad = 50)
     plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
-    #ax.set(adjustable='box-forced', aspect='equal')
     ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-    plt.subplots_adjust(left = 0.25, bottom = 0.25)
-    if x_var == 'SWin_corr' or x_var == 'LWin' or x_var == 'melt_energy':
+    plt.subplots_adjust(left=0.25, bottom=0.25)
+    if which == 'obs':
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(AWS14_SEB[x_var], AWS14_SEB[y_var])
+        ax.scatter(AWS14_SEB[x_var], AWS14_SEB[y_var], color = '#f68080')
+    elif which == 'model':
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(ctrl_SEB_dict[x_var], ctrl_SEB_dict[y_var])
+        ax.scatter(ctrl_SEB_dict[x_var], ctrl_SEB_dict[y_var], color = '#f68080')
+    #ax.set(adjustable='box-forced', aspect='equal')
+    if x_var == 'transmissivity' or x_var == 'LWin' or x_var == 'melt_energy':
         ax.set_xlim(np.round(np.floor(np.min(AWS14_SEB[x_var])), -1), np.round(np.ceil(np.max(AWS14_SEB[x_var])), -1))
         plt.xticks([np.round(np.floor(np.min(AWS14_SEB[x_var])), -1), np.round(np.ceil(np.max(AWS14_SEB[x_var])), -1)])
-    if y_var == 'SWin_corr' or y_var == 'LWin' or y_var == 'melt_energy':
+    if y_var == 'transmissivity' or y_var == 'LWin' or y_var == 'melt_energy':
         ax.set_ylim(np.round(np.floor(np.min(AWS14_SEB[y_var])), -1), np.round(np.ceil(np.max(AWS14_SEB[y_var])), -1))
         plt.yticks([np.round(np.floor(np.min(AWS14_SEB[y_var])), -1), np.round(np.ceil(np.max(AWS14_SEB[y_var])), -1)])
     if x_var == 'Cloudcover':
@@ -873,6 +954,15 @@ def obs_correl_scatter(x_var, y_var):
     if y_var == 'Cloudcover':
         ax.set_ylim(0., 1.)
         plt.yticks([0, 1])
+    if x_var == 'SWdown_srs' or x_var == 'LWdown_srs' or x_var == 'melt_srs':
+        ax.set_xlim(np.round(np.floor(np.min(ctrl_SEB_dict[x_var])), -1), np.round(np.ceil(np.max(ctrl_SEB_dict[x_var])), -1))
+        plt.xticks([np.round(np.floor(np.min(ctrl_SEB_dict[x_var])), -1), np.round(np.ceil(np.max(ctrl_SEB_dict[x_var])), -1)])
+    if y_var == 'SWdown_srs' or x_var == 'LWdown_srs' or x_var == 'melt_srs':
+        ax.set_ylim(np.round(np.floor(np.min(ctrl_SEB_dict[y_var])), -1), np.round(np.ceil(np.max(ctrl_SEB_dict[y_var])), -1))
+        plt.yticks([np.round(np.floor(np.min(ctrl_SEB_dict[y_var])), -1), np.round(np.ceil(np.max(ctrl_SEB_dict[y_var])), -1)])
+    if y_var == 'melt_srs':
+        ax.set_ylim(0, np.round(np.ceil(np.max(ctrl_SEB_dict[y_var])), -1))
+        plt.yticks([0, np.round(np.ceil(np.max(ctrl_SEB_dict[y_var])), -1)])
     if p <= 0.01:
         ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
                 s='r$^{2}$ = %s' % np.round(r2, decimals=2),
@@ -880,13 +970,23 @@ def obs_correl_scatter(x_var, y_var):
     else:
         ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
                 s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax.transAxes, size=28, color='dimgrey')
-    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_obs_correl_'+x_var+'_'+y_var+'.png', transparent = True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_obs_correl_'+x_var+'_'+y_var+'.eps', transparent=True)
+    if which == 'obs':
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_obs_correl_'+x_var+'_'+y_var+'.png', transparent = True)
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_obs_correl_'+x_var+'_'+y_var+'.eps', transparent=True)
+    elif which =='model':
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_model_correl_'+x_var+'_'+y_var+'.png', transparent = True)
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_model_correl_'+x_var+'_'+y_var+'.eps', transparent=True)
     plt.show()
 
-obs_correl_scatter(x_var = 'LWin', y_var = 'melt_energy' )
-obs_correl_scatter(x_var = 'SWin_corr', y_var = 'melt_energy' )
-obs_correl_scatter(x_var = 'Cloudcover', y_var = 'melt_energy' )
+#correl_scatter(x_var = 'LWin', y_var = 'melt_energy', which = 'obs')
+#correl_scatter(x_var = 'SWin_corr', y_var = 'melt_energy', which = 'obs' )
+#correl_scatter(x_var = 'Cloudcover', y_var = 'melt_energy' , which = 'obs')
+correl_scatter(x_var = 'LWdown_srs', y_var = 'melt_srs', which = 'model')
+correl_scatter(x_var = 'SWdown_srs', y_var = 'melt_srs', which = 'model' )
+
+
+
+
 
 def full_SEB():
     fig, ax = plt.subplots(figsize = (18,8), sharex = True)
@@ -1452,66 +1552,6 @@ def liq_time_srs():
     plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/vn11_rad_time_srs_Jan_2011.eps')
     plt.show()
 
-def correl_SEB_sgl(runSEB, runMP, phase):
-    fig, ax = plt.subplots(figsize = (12,6))
-    if phase == 'liquid':
-        # LW vs LWP
-        #ax.set_xlim(0,800)
-        #ax.set_ylim(0,300)
-        ax.scatter(box_SW_srs, box_LWP_srs*1000, color='#f68080',s=50)
-#        ax.set_ylim(np.min(np.mean(runMP['LWP'][:,:, 133:207, 188:213].data, axis=0)),
-#                          np.max(np.mean(runMP['LWP'][:,:, 133:207, 188:213].data, axis=(0))))
-#        ax.set_xlim(np.min(np.mean(runSEB['LW_down'][:,:, 133:207, 188:213].data, axis=(0))),
-#                          np.max(np.mean(runSEB['LW_down'][:,:, 133:207, 188:213].data, axis=(0))))
-        slope, intercept, r2, p, sterr = scipy.stats.linregress(box_SW_srs, box_LWP_srs)
-        if p <= 0.01:
-            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top', s='r$^{2}$ = %s' % np.round(r2, decimals=2),
-                          fontweight='bold', transform=ax.transAxes, size=24,color='dimgrey')
-        else:
-            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
-                          s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax.transAxes, size=24, color='dimgrey')
-        ax.set_xlabel('Modelled LW$_{\downarrow}$ (W m$^{-2}$)', size=24, color='dimgrey', rotation=0,labelpad=10)
-        ax.set_ylabel('Modelled LWP \n(g m$^{-2}$)', size=24, color='dimgrey', rotation=0, labelpad=80)
-        lab = ax.text(0.1, 0.85, transform=ax.transAxes, s='a', fontsize=32, fontweight='bold', color='dimgrey')
-        ax.spines['right'].set_visible(False)
-    elif phase == 'ice':
-        # SW vs IWP
-        ax.set_xlim(290,600)
-        slope, intercept, r2, p, sterr = scipy.stats.linregress(box_SW_srs, box_IWP_srs)
-        if p <= 0.01:
-            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
-                              s='r$^{2}$ = %s' % np.round(r2, decimals=2), fontweight='bold',
-                              transform=ax.transAxes, size=24, color='dimgrey')
-        else:
-            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top', s='r$^{2}$ = %s' % np.round(r2, decimals=2),
-                              transform=ax.transAxes, size=24,color='dimgrey')
-        ax.scatter(box_SW_srs, box_IWP_srs*1000, color='#f68080', s=50)
-        #ax.set_ylim(np.min(np.mean(runMP['IWP'][:,:, 133:207, 188:213].data, axis=0)),
-        #                  np.max(np.mean(runMP['IWP'][:,:, 133:207, 188:213].data, axis=(0))))
-        #ax.set_xlim(np.min(np.mean(runSEB['SW_down'][:,:, 133:207, 188:213].data, axis=(0))),
-        #                  np.max(np.mean(runSEB['SW_down'][:,:, 133:207, 188:213].data, axis=(0))))
-        ax.set_xlabel('Modelled SW$_{\downarrow}$ (W m$^{-2}$)', size=24, color='dimgrey', rotation=0,labelpad=10)
-        ax.set_ylabel('Modelled IWP \n(g m$^{-2}$)', size=24, color='dimgrey', rotation=0, labelpad=80)
-        lab = ax.text(0.1, 0.85, transform=ax.transAxes, s='b', fontsize=32, fontweight='bold', color='dimgrey')
-        ax.yaxis.tick_right()
-        [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
-        ax.yaxis.set_label_coords(1.3, 0.5)
-        ax.spines['left'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
-    #ax.axis('square')
-      # axs.set_adjustable('box')
-    ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey',pad=10)
-    [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
-    #[l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
-    plt.subplots_adjust(top=0.98, hspace=0.15, bottom=0.1, wspace=0.15, left=0.3, right=0.75)
-    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_SEB_v_'+phase+'.png', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_SEB_v_'+phase+'.eps', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_SEB_v_'+phase+'.pdf', transparent=True)
-    plt.show()
-
-#correl_SEB_sgl(Jan_SEB, Jan_mp, phase = 'liquid')
-
 ## Caption: Box plots showing the modelled variation in ice and liquid water paths over the OFCAP period across the entire
 ## Larsen ice shelf, and at AWSs 14 and 15. Median values are indicated by the pink line in the centre of each box, while
 ## the green diamonds show the model mean. The whiskers extend to the 5th and 95th percentiles of the data, and outlying
@@ -1561,108 +1601,4 @@ def boxplot(data):
     plt.show()
 
 #boxplot(data = 'SEB')
-
-
-
-def correl_SEB_sgl(runSEB, runMP, times, phase):
-    fig, ax = plt.subplots(figsize = (12,6))
-    if phase == 'liquid':
-        # LW vs LWP
-        #ax.set_xlim(260,330)
-        #ax.set_ylim(0,300)
-        ax.scatter(np.ravel(np.mean(runSEB['melt'][times[0]:times[1], 133:207, 188:213], axis=(0))), np.ravel(np.mean(runMP['cl_A'][times[0]:times[1]:4, 133:207, 188:213].data, axis=(0))), color='#f68080',s=50)
-#        ax.set_ylim(np.min(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=0)),
-#                          np.max(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
-#        ax.set_xlim(np.min(np.mean(runSEB['LW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
-#                          np.max(np.mean(runSEB['LW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
-        slope, intercept, r2, p, sterr = scipy.stats.linregress(np.ravel(np.mean(runSEB['melt'][times[0]:times[1], 133:207, 188:213], axis=(0))),
-            np.ravel(np.mean(runMP['cl_A'][times[0]:times[1]:4, 133:207, 188:213].data, axis=(0))))
-        if p <= 0.01:
-            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top', s='r$^{2}$ = %s' % np.round(r2, decimals=2),
-                          fontweight='bold', transform=ax.transAxes, size=24,color='dimgrey')
-        else:
-            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
-                          s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax.transAxes, size=24, color='dimgrey')
-        ax.set_xlabel('Modelled melt (W m$^{-2}$)', size=24, color='dimgrey', rotation=0,labelpad=10)
-        ax.set_ylabel('Modelled cloud area fraction', size=24, color='dimgrey', rotation=0, labelpad=80)
-        lab = ax.text(0.1, 0.85, transform=ax.transAxes, s='a', fontsize=32, fontweight='bold', color='dimgrey')
-        ax.spines['right'].set_visible(False)
-    elif phase == 'ice':
-        # SW vs IWP
-        #ax.set_xlim(290,600)
-        slope, intercept, r2, p, sterr = scipy.stats.linregress(np.ravel(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
-            np.ravel(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
-        if p <= 0.01:
-            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
-                              s='r$^{2}$ = %s' % np.round(r2, decimals=2), fontweight='bold',
-                              transform=ax.transAxes, size=24, color='dimgrey')
-        else:
-            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top', s='r$^{2}$ = %s' % np.round(r2, decimals=2),
-                              transform=ax.transAxes, size=24,color='dimgrey')
-        ax.scatter(np.ravel(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))), np.ravel(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
-                             color='#f68080', s=50)
-        #ax.set_ylim(np.min(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=0)),
-        #                  np.max(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
-        #ax.set_xlim(np.min(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
-        #                  np.max(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
-        ax.set_xlabel('Modelled SW$_{\downarrow}$ (W m$^{-2}$)', size=24, color='dimgrey', rotation=0,labelpad=10)
-        ax.set_ylabel('Modelled IWP \n(g m$^{-2}$)', size=24, color='dimgrey', rotation=0, labelpad=80)
-        lab = ax.text(0.1, 0.85, transform=ax.transAxes, s='b', fontsize=32, fontweight='bold', color='dimgrey')
-        ax.yaxis.tick_right()
-        [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
-        ax.yaxis.set_label_coords(1.3, 0.5)
-        ax.spines['left'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
-    #ax.axis('square')
-      # axs.set_adjustable('box')
-    ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey',pad=10)
-    [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
-    #[l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
-    plt.subplots_adjust(top=0.98, hspace=0.15, bottom=0.1, wspace=0.15, left=0.3, right=0.75)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/melt_v_cloud_RA1M_mod_shifted'+phase+'.png', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/melt_v_cloud_RA1M_mod_shifted'+phase+'.eps', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/melt_v_cloud_RA1M_mod_shifted'+phase+'.pdf', transparent=True)
-    plt.show()
-
-
-
-
-'''
-E_tot = (AWS14_SEB_Jan['SWin_corr'] - AWS14_SEB_Jan['SWout']) + (AWS14_SEB_Jan['LWin'] - AWS14_SEB_Jan['LWout_corr']) + AWS14_SEB_Jan['Hlat']+ AWS14_SEB_Jan['Hsen'] - AWS14_SEB_Jan['Gs']
-
-
-# https://matplotlib.org/gallery/statistics/bxp.html
-
-fig, ax = plt.subplots(1, 1, figsize=(18, 8))
-ax.set_ylim(-800,950)
-ax.boxplot([AWS14_SEB_Jan['SWin_corr'], (0-AWS14_SEB_Jan['SWout']),AWS14_SEB_Jan['LWin'],  (0-AWS14_SEB_Jan['LWout_corr']),  AWS14_SEB_Jan['Hsen'],  AWS14_SEB_Jan['Hlat'], E_tot,  AWS14_SEB_Jan['melt_energy']],
-           whis=[5, 95], showmeans=True,
-           whiskerprops=dict(linestyle='--', color='#222222', linewidth=1.5),
-           capprops=dict(color='#222222', linewidth=1.5, zorder=10),
-           medianprops=dict(color='#f68080', linewidth=2.5, zorder=6),
-           meanprops=dict(marker='D', markeredgecolor='#222222', markerfacecolor='#33a02c', markersize=10, zorder=11),
-           flierprops=dict(marker='x', markeredgecolor='dimgrey', zorder=2, markersize=10),
-           boxprops=dict(linewidth=1.5, color='#222222', zorder=8))  # insert LWP at AWS 14 once I have got it!
-ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-ax.set_yticks([ -800, -400, 0, 400, 800])
-ax.axhline(y=0, linewidth = 1.5, linestyle = '--', color = 'dimgrey')
-ax.set_xticklabels(
-    ['SW$_{down}$', 'SW$_{up}$','LW$_{down}$', 'LW$_{up}$', 'H$_S$', 'H$_L$', 'E$_{tot}$', 'E$_{melt}$']) #
-ax.set_ylabel('Energy flux \n(W m$^{-2}$)', color='dimgrey', fontsize=24, rotation=0, labelpad=60)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
-plt.subplots_adjust(bottom=0.2, top=0.95, right=0.99, left=0.2)
-plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_SEB_boxplot_AWS.png', transparent=True)
-plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_SEB_boxplot_AWS.pdf', transparent=True)
-plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_SEB_boxplot_AWS.eps', transparent=True)
-plt.show()
-
-#IWP_time_srs(),
-#QCF_plot(), QCL_plot()
-
-#T_plot()
-
-'''
 
