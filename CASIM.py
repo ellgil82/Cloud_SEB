@@ -211,7 +211,6 @@ def load_met(config, flight_date, times):
     var_dict = {'Tair': Tair[times[0]:times[1],0,:,:].data, 'Ts': Ts[times[0]:times[1],:,:].data, 'q': q[times[0]:times[1],0,:,:].data, 'ff': ff_AWS14, 'BL_ht': BL_ht[times[0]:times[1],:,:].data, 'Model_time': q.coord('time').points}
     return var_dict
 
-
 def load_obs(flight, flight_date):
     ###Inputs: flight number as a string, e.g. 'flight159' and flight_date as a string, with date only (not time) in YYYMMDD format, e.g. '20110125'
     ## ----------------------------------------------- SET UP VARIABLES --------------------------------------------------##
@@ -333,7 +332,7 @@ def load_obs(flight, flight_date):
     # Create bins from model data
     print('\nbinning by altitude...')
     #Load model data to get altitude bins
-    ice_mass_frac = iris.load_cube('/data/mac/ellgil82/cloud_data/um/means/20110118T0000Z_Peninsula_km1p5_Smith_tnuc_pc000.pp', 'mass_fraction_of_cloud_ice_in_air')
+    ice_mass_frac = iris.load_cube('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/t24/20110118T0000Z_Peninsula_1p5km_RA1M_24_pb000.pp', 'mass_fraction_of_cloud_ice_in_air')
     bins =  ice_mass_frac.coord('level_height').points.tolist()
     # Find index of model level bin to which aircraft data would belong and turn data into pandas dataframe
     icy = {'alt_idx': np.digitize(alt_array_ice, bins = bins), 'IWC': IWC_array,  'n_ice': nconc_ice}
@@ -373,8 +372,8 @@ IWC_profile, LWC_profile, aer, IWC_array, LWC_array, alt_array_ice, alt_array_li
 #BL_vars = load_model(config = 'RA1M_mods_BL', flight_date = '20110118T0000', times = (68,80))
 #DeMott_BL = load_model(config = 'CASIM_DeMott_BL', flight_date = '20110118T0000', times = (68,80))
 RA1M_mod_vars = load_model(config = 'RA1M_mod_24', flight_date = '20110118T0000', times = (60,68))
-RA1T_mod_vars = load_model(config ='RA1T_mod_24', flight_date = '20110118T0000', times = (60,68))
-RA1T_vars = load_model(config ='RA1T_24', flight_date = '20110118T0000', times = (60,68))
+#RA1T_mod_vars = load_model(config ='RA1T_mod_24', flight_date = '20110118T0000', times = (60,68))
+#RA1T_vars = load_model(config ='RA1T_24', flight_date = '20110118T0000', times = (60,68))
 RA1M_vars = load_model(config ='RA1M_24', flight_date = '20110118T0000', times = (60,68))
 #CASIM_vars = load_model(config ='CASIM_24', flight_date = '20110118T0000', times = (68,80))
 #DeMott_vars = load_model(config ='CASIM_24_DeMott', flight_date = '20110118T0000', times = (68,80))
@@ -502,59 +501,50 @@ def make_table():
 
 def calc_bias():
     model_runs = ['RA1M_24', 'RA1M_mod_24', 'RA1T_24','RA1T_mod_24']  # , 'CASIM_24', 'CASIM_24_DeMott' 'CASIM_f152_ice_off']
-    col_idx = [ 'RA1M bias', 'RA1M RMSE', 'RA1M_mod bias', 'RA1M_mod RMSE', 'RA1T bias', 'RA1T RMSE', 'RA1T_mod bias', 'RA1T_mod RMSE']  # , 'Cooper'', DeMott', 'ice off']
+    col_idx = [ 'RA1M ', 'RA1M_mod', 'RA1T',  'RA1T_mod']  # , 'Cooper'', DeMott', 'ice off']
     #surf_met_obs = [AWS14_SEB_flight_mean['Tsobs'], AWS14_SEB_flight_mean['Tair_2m'], AWS14_SEB_flight_mean['qair_2m'], AWS14_SEB_flight_mean['FF_10m'], AWS14_SEB_flight_mean['SWin_corr'], AWS14_SEB_flight_mean['SWout'], AWS14_SEB_flight_mean['LWout_corr'],AWS14_SEB_flight_mean['LWnet_corr'], AWS14_SEB_flight_mean['Hlat'], AWS14_SEB_flight_mean['Hsen'], AWS14_SEB_flight_mean['Etot'], AWS14_SEB_flight_mean['melt_energy']]
     AWS_var = AWS14_SEB_Jan
-    surf_met_obs = [AWS_var['Tsobs'][34:40:2], AWS_var['Tair_2m'][34:40:2], AWS_var['qair_2m'][34:40:2], AWS_var['FF_10m'][34:40:2], AWS_var['SWin_corr'][34:40:2],
-                    AWS_var['LWin'][34:40:2], AWS_var['SWnet_corr'][34:40:2], AWS_var['LWnet_corr'][34:40:2], AWS_var['Hsen'][34:40:2], AWS_var['Hlat'][34:40:2],
-                    AWS_var['Etot'][34:40:2], AWS_var['melt_energy'][34:40:2]]  # , AWS_var['melt_energy']]
+    surf_met_obs =  [AWS_var['SWin_corr'][30:36:2], AWS_var['SWout'][30:36:2],AWS_var['SWnet_corr'][30:36:2],
+                    AWS_var['LWin'][30:36:2], AWS_var['LWout_corr'][30:36:2],  AWS_var['LWnet_corr'][30:36:2], AWS_var['Hsen'][30:36:2], AWS_var['Hlat'][30:36:2],
+                    AWS_var['Etot'][30:36:2], AWS_var['totm_nrg'][30:36:2]]# , AWS_var['melt_energy']] [AWS_var['Tsobs'][30:34:2], AWS_var['Tair_2m'][30:34:2], AWS_var['qair_2m'][30:34:2], AWS_var['FF_10m'][30:34:2],
     #surf_mod = [met_dict['Ts_srs'], met_dict['Tair_srs'], met_dict['q_srs'], met_dict['ff_srs'], SEB_dict['SWdown_srs'],
     #            SEB_dict['LWdown_srs'], SEB_dict['SWnet_srs'], SEB_dict['LWnet_srs'], SEB_dict['HS_srs'],
     #            SEB_dict['HL_srs'], SEB_dict['Etot_srs'], SEB_dict['melt_srs']]  # , SEB_1p5['melt_forced']]
     for i in model_runs:
         try:
             SEB_dict = load_SEB(config=i, flight_date='20110118T0000')
-            met_dict = load_met(config=i, flight_date='20110118T0000', times=(17, 20))
-            Model_SEB_day_AWS14, Model_SEB_day_AWS15, Model_SEB_flight_AWS14, Model_SEB_flight_AWS15, melt_masked_day, melt_masked_flight, AWS14_SEB_flight, AWS14_SEB_day, AWS14_melt_flight, AWS14_melt_day = calc_SEB(run=SEB_dict, times=(68, 80))
-            surf_mod = [np.mean(met_dict['Ts'][:, 199:201, 199:201],axis = (1,2)),
-                                              np.mean(met_dict['Tair'][:, 199:201, 199:201],axis = (1,2)),
-                                              np.mean(met_dict['q'][:, 199:201, 199:201]), np.mean(met_dict['ff'][:, 199:201, 199:201],axis = (1,2)),
-                                              np.mean(SEB_dict['SW_down'][68:80:4, 199:201, 199:201].data,axis = (1,2)),
-                                              np.mean(SEB_dict['SW_up'][68:80:4, 0, 199:201, 199:201].data,axis = (1,2)),
-                                              np.mean(SEB_dict['SW_net'][68:80:4, 199:201, 199:201].data,axis = (1,2)),
-                                              np.mean(SEB_dict['LW_down'][68:80:4, 199:201, 199:201].data,axis = (1,2)),
-                                              np.mean(SEB_dict['LW_up'][68:80:4, 0, 199:201, 199:201].data,axis = (1,2)),
-                                              np.mean(SEB_dict['LW_net'][68:80:4, 199:201, 199:201].data,axis = (1,2)),
-                                              np.mean(SEB_dict['LH'][68:80:4, 199:201, 199:201],axis = (1,2)),
-                                              np.mean(SEB_dict['SH'][68:80:4, 199:201, 199:201],axis = (1,2)),
-                                              np.mean(Model_SEB_flight_AWS14), np.mean(SEB_dict['melt'][17:20, 199:201, 199:201],axis = (1,2))]
+            #met_dict = load_met(config=i, flight_date='20110118T0000', times=(15,18))
+            Model_SEB_day_AWS14, Model_SEB_day_AWS15, Model_SEB_flight_AWS14, Model_SEB_flight_AWS15, melt_masked_day, melt_masked_flight, AWS14_SEB_flight, AWS14_SEB_day, AWS14_melt_flight, AWS14_melt_day = calc_SEB(run=SEB_dict, times=(60, 68))
+            surf_mod = [
+                                              np.mean(SEB_dict['SW_down'][60:68:4, 199:201, 199:201].data,axis = (1,2)),
+                                              np.mean(SEB_dict['SW_up'][60:68:4, 0, 199:201, 199:201].data,axis = (1,2)),
+                                              np.mean(SEB_dict['SW_net'][60:68:4, 199:201, 199:201].data,axis = (1,2)),
+                                              np.mean(SEB_dict['LW_down'][60:68:4, 199:201, 199:201].data,axis = (1,2)),
+                                              np.mean(SEB_dict['LW_up'][60:68:4, 0, 199:201, 199:201].data,axis = (1,2)),
+                                              np.mean(SEB_dict['LW_net'][60:68:4, 199:201, 199:201].data,axis = (1,2)),
+                                              np.mean(SEB_dict['LH'][60:68:4, 199:201, 199:201],axis = (1,2)),
+                                              np.mean(SEB_dict['SH'][60:68:4, 199:201, 199:201],axis = (1,2)),
+                                              np.mean(Model_SEB_flight_AWS14), np.mean(SEB_dict['melt'][15:18, 199:201, 199:201],axis = (1,2))] # np.mean(SEB_dict['Ts'][:, 199:201, 199:201],axis = (1,2)), np.mean(met_dict['Tair'][:, 199:201, 199:201],axis = (1,2)),np.mean(met_dict['q'][:, 199:201, 199:201]), np.mean(met_dict['ff'][:, 199:201, 199:201],axis = (1,2)),
             mean_obs = []
             mean_mod = []
             bias = []
             errors = []
-            r2s = []
-            rmses = []
             for j in np.arange(len(surf_met_obs)):
-                b = surf_mod[j] - surf_met_obs[j]
-                errors.append(b)
+                #b = surf_mod[j] - surf_met_obs[j]
+                #errors.append(np.mean(b))
                 mean_obs.append(np.mean(surf_met_obs[j]))
                 mean_mod.append(np.mean(surf_mod[j]))
                 bias.append(mean_mod[j] - mean_obs[j])
-                slope, intercept, r2, p, sterr = scipy.stats.linregress(surf_met_obs[j], surf_mod[j])
-                r2s.append(r2)
-                mse = mean_squared_error(y_true = surf_met_obs[j], y_pred = surf_mod[j])
-                rmse = np.sqrt(mse)
-                rmses.append(rmse)
-                idx = ['Ts', 'Tair', 'RH', 'wind', 'SWd', 'LWd', 'SWn', 'LWn', 'SH', 'LH', 'total', 'melt']
+                idx = ['SWd', 'SWu', 'SWnet','LWd', 'LWu', 'LWn', 'SH', 'LH', 'total', 'melt']#'Ts', 'Tair', 'RH', 'wind',
             df = pd.DataFrame(index=idx)
             df['obs mean'] = pd.Series(mean_obs, index=idx)
             df['mod mean'] = pd.Series(mean_mod, index=idx)
             df['bias'] = pd.Series(bias, index=idx)
-            df['rmse'] = pd.Series(rmses, index=idx)
-            df['% RMSE'] = (df['rmse'] / df['obs mean']) * 100
-            df['correl'] = pd.Series(r2s, index=idx)
-            df = pd.DataFrame(stats_table,columns=['Ts', 'Tair', 'q', 'ff', 'SWdown', 'SWup', 'SWnet', 'LWdown', 'LWup', 'LWnet','LH', 'SH', 'Etot', 'Emelt'], index=col_idx)
-            df.to_csv('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/t24/f152_bias_RMSE_SEB_'+i+'.csv')
+            #df['rmse'] = pd.Series(rmses, index=idx)
+            #df['% RMSE'] = (df['rmse'] / df['obs mean']) * 100
+            #df['correl'] = pd.Series(r2s, index=idx)
+            #df = pd.DataFrame(stats_table,columns=['SWdown', 'SWup', 'SWnet', 'LWdown', 'LWup', 'LWnet','LH', 'SH', 'Etot', 'Emelt'], index=col_idx)
+            df.to_csv('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/t24/f152_bias_RMSE_SEB_3hr_unshifted_'+i+'.csv')
         except iris.exceptions.ConstraintMismatchError:
             print(i + ' not available')
 
@@ -1040,13 +1030,13 @@ def IWP_time_srs():
 
 #IWP_time_srs()
 
-colour_dict = {RA1M_vars: '#f87e7e',
-               RA1M_mod_vars: '#1f78b4',
-               RA1T_vars: '#33a02c',
-               RA1T_mod_vars: 'dimgrey',
-               DeMott_vars: '#EA580F',
-               CASIM_vars: '#5D13E8',
-               ice_off_vars: '#DC143C'}
+#colour_dict = {RA1M_vars: '#f87e7e',
+#               RA1M_mod_vars: '#1f78b4',
+#               RA1T_vars: '#33a02c',
+#               RA1T_mod_vars: 'dimgrey',
+#               DeMott_vars: '#EA580F',
+#               CASIM_vars: '#5D13E8',
+#               ice_off_vars: '#DC143C'}
 
 def all_mod_plot(run1, run2, run3, run4):
     fig, ax = plt.subplots(1,2, figsize=(16, 9))
@@ -1058,52 +1048,46 @@ def all_mod_plot(run1, run2, run3, run4):
         plt.setp(axs.spines.values(), linewidth=3, color='dimgrey')
         axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
         axs.set_ylim(0, max(run1['altitude']))
-        [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
-    #m1_QCF = ax[0].plot(run1['AWS14_mean_QCF'], run1['altitude'], color= '#f87e7e', linestyle='--', linewidth=2.5, label = 'RA1M')
-    #m2_QCF = ax[0].plot(run2['AWS14_mean_QCF'], run2['altitude'], color='#1f78b4', linestyle='--', linewidth=2.5, label = 'RA1M_mod')
-    #m3_QCF = ax[0].plot(run3['AWS14_mean_QCF'], run3['altitude'], color='#33a02c', linestyle='--', linewidth=2.5, label= 'RA1T')
-    #m4_QCF = ax[0].plot(run4['AWS14_mean_QCF'], run4['altitude'], color='dimgrey', linestyle='--', linewidth=2.5, label='RA1T_mod')
-    #p_QCF = ax[0].plot(IWC_profile, run1['altitude'], color = 'k', linewidth = 2.5, label = 'Observations')
+        #[l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
+    m1_QCF = ax[0].plot(run1['AWS14_mean_QCF'], run1['altitude'], color='#1f78b4',  marker = 'o', markersize = 15,  linewidth=3, label = 'RA1M')
+    m2_QCF = ax[0].plot(run2['AWS14_mean_QCF'], run2['altitude'], color='#1f78b4', linestyle='--', markersize = 15,   marker = 'o', markerfacecolor = 'None',linewidth=3, label = 'RA1M_mod')
+    m3_QCF = ax[0].plot(run3['AWS14_mean_QCF'], run3['altitude'], color='#f87e7e',  marker = 'X', markersize = 15,  linewidth=3, label= 'RA1T')
+    m4_QCF = ax[0].plot(run4['AWS14_mean_QCF'], run4['altitude'],  color='#f87e7e', linestyle='--', markersize = 15,   marker = 'x',  linewidth=3, label='RA1T_mod')
+    p_QCF = ax[0].plot(IWC_profile, run1['altitude'], color = 'k', linewidth = 3, label = 'Observations')
     ax[0].set_xlabel('Cloud ice mass mixing ratio \n(g kg$^{-1}$)', fontname='SegoeUI semibold', color='dimgrey',
                      fontsize=28, labelpad=35)
     ax[0].set_ylabel('Altitude \n(km)', rotation = 0, fontname='SegoeUI semibold', fontsize = 28, color = 'dimgrey', labelpad = 80)
-    ax[0].yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+    ax[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
     ax[0].xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))
     ax[0].ticklabel_format(style='sci', axis='x', scilimits=(0,0))
     ax[0].set_xlim(0,0.04)
     ax[0].xaxis.get_offset_text().set_fontsize(24)
     ax[0].xaxis.get_offset_text().set_color('dimgrey')
-    ax[0].text(0.1, 0.85, transform=ax[0].transAxes, s='a', fontsize=32, fontweight='bold', color='dimgrey')
-    ax[1].set_xlabel('Cloud liquid mass mixing ratio \n(g kg$^{-1}$)', fontname='SegoeUI semibold', color='dimgrey',
-                     fontsize=28, labelpad=35)
-    #p_QCL = ax[1].plot(LWC_profile, run1['altitude'], color = 'k', linewidth = 2.5, label = 'Observations')
-    #m1_QCL = ax[1].plot(run1['AWS14_mean_QCL'], run1['altitude'], color= '#f87e7e', linestyle='--', linewidth=2.5, label = 'RA1M')
-    #m2_QCL = ax[1].plot(run2['AWS14_mean_QCL'], run2['altitude'], color='#1f78b4', linestyle='--', linewidth=2.5, label = 'RA1M_mod')
-    #m3_QCL = ax[1].plot(run3['AWS14_mean_QCL'], run3['altitude'], color='#33a02c', linestyle='--', linewidth=2.5, label= 'RA1T')
-    #m4_QCL = ax[1].plot(run4['AWS14_mean_QCL'], run4['altitude'], color='dimgrey', linestyle='--', linewidth=2.5, label='RA1T_mod')
+    ax[0].text(-0.35, 0.95, transform=ax[0].transAxes, s='(a)', fontsize=36, fontweight='bold', color='dimgrey')
+    ax[1].set_xlabel('Cloud liquid mass mixing ratio \n(g kg$^{-1}$)', fontname='SegoeUI semibold', color='dimgrey', fontsize=28, labelpad=35)
+    m1_QCL = ax[1].plot(run1['AWS14_mean_QCL'], run1['altitude'], color='#1f78b4', markersize = 15, marker = 'o', linewidth=3, label = 'RA1M')
+    m2_QCL = ax[1].plot(run2['AWS14_mean_QCL'], run2['altitude'], color='#1f78b4',markersize = 15, linestyle='--', markerfacecolor = 'None',  marker = 'o', linewidth=3, label = 'RA1M_mod')
+    m3_QCL = ax[1].plot(run3['AWS14_mean_QCL'], run3['altitude'], color='#f87e7e',markersize = 15,  marker = 'X', linewidth=3, label= 'RA1T')
+    m4_QCL = ax[1].plot(run4['AWS14_mean_QCL'], run4['altitude'], color='#f87e7e', markersize = 15, linestyle='--', marker = 'x', linewidth=3, label='RA1T_mod')
+    p_QCL = ax[1].plot(LWC_profile, run1['altitude'], color = 'k', linewidth = 3, label = 'Observations')
     ax[1].axes.tick_params(axis = 'both', which = 'both', direction = 'in', length = 5, width = 1.5,  labelsize = 24, pad = 10)
     ax[1].tick_params(labelleft = 'off')
     ax[1].set_xlim(0,0.4)
-    ax[1].xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+    ax[1].xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     ax[1].xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))
     ax[1].ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
     ax[1].xaxis.get_offset_text().set_fontsize(24)
     ax[1].xaxis.get_offset_text().set_color('dimgrey')
-    ax[1].text(0.1, 0.85, transform=ax[1].transAxes, s='b', fontsize=32, fontweight='bold', color='dimgrey')
-    plt.subplots_adjust(wspace=0.1, bottom=0.23, top=0.95, left=0.17, right=0.98)
-    #handles, labels = ax[1].get_legend_handles_labels()
-    #handles = [handles[0], handles[1], handles[-1], handles[2],  handles[3] ]
-    #labels = [labels[0], labels[1], labels[-1], labels[2], labels[3]]
-    #lgd = plt.legend(handles, labels, fontsize=20, markerscale=2)
-    lgd = plt.legend(fontsize = 20, markerscale = 2)
+    ax[1].text(-0.15, 0.95, transform=ax[1].transAxes, s='(b)', fontsize=36, fontweight='bold', color='dimgrey')
+    plt.subplots_adjust(wspace=0.1, bottom=0.23, top=0.92, left=0.17, right=0.98)
+    for axs in [ax[0], ax[1]]:
+        [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
+    lgd = plt.legend(fontsize = 20, markerscale = 1.25)
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey')
     lgd.get_frame().set_linewidth(0.0)
-    plt.setp(ax[0].get_xticklabels()[-3], visible=False)
-    #plt.setp(ax[0].get_xticklabels()[-5], visible=False)
-    plt.setp(ax[1].get_xticklabels()[-3], visible=False)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/AWS14_vertical_profiles_mean_comparison_sgl_mom_axes_only.eps')
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/AWS14_vertical_profiles_mean_comparison_sgl_mom_axes_only.png')
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/AWS14_vertical_profiles_mean_comparison_sgl_mom.eps')
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/AWS14_vertical_profiles_mean_comparison_sgl_mom.png')
     plt.show()
 
 
@@ -1264,8 +1248,6 @@ def total_SEB(run):
 
 #total_SEB(RA1M_mod_SEB)
 
-
-
 def dif_plot():
     fig, ax = plt.subplots(1,2, figsize=(16, 9))
     ax = ax.flatten()
@@ -1319,7 +1301,7 @@ def dif_plot():
 #RA1M_SEB = load_SEB(config = 'RA1M_24', flight_date= '20110118T0000')
 #RA1M_mod_SEB = load_SEB(config = 'RA1M_mod_24', flight_date= '20110118T0000Z')
 
-#model_runs = ['RA1M_SEB']
+#model_runs = ['RA1M_mod_SEB']
 
 def SEB_correl(runSEB, runMP, times, scatter_type):
     fig, ax = plt.subplots(len(model_runs),2, sharex='col', figsize=(18, len(model_runs * 5) + 3), subplot_kw = {'aspect':1})  # , squeeze=False)
@@ -1419,116 +1401,189 @@ def SEB_correl(runSEB, runMP, times, scatter_type):
     ax[0].set_xlim(250, 350)
     ax[1].set_xlim(400, 600)
     plt.subplots_adjust(top = 0.98, hspace = 0.15, bottom = 0.05, wspace = 0.15, left = 0.15, right = 0.85)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_RA1M_mod_LW_shifted.png', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_RA1M_mod_LW_shifted.eps', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_RA1M_mod_LW_shifted.pdf', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_RA1M_mod_LW.png', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_RA1M_mod_LW.eps', transparent=True)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/SEB_v_mp_RA1M_mod_LW.pdf', transparent=True)
     plt.show()
 
 
-#SEB_correl(RA1M_mod_SEB, RA1M_mod_vars, times = (69,79), scatter_type= 'spatial')
+#SEB_correl(RA1M_mod_SEB, RA1M_mod_vars, times = (60,68), scatter_type= 'spatial')
 
 
-def correl_SEB_sgl(runSEB, runMP, times, phase):
-    fig, ax = plt.subplots(figsize = (12,6))
-    if phase == 'liquid':
-        # LW vs LWP
-        #ax.set_xlim(260,330)
-        #ax.set_ylim(0,300)
-        ax.scatter(np.ravel(np.mean(runSEB['melt'][times[0]:times[1], 133:207, 188:213], axis=(0))), np.ravel(np.mean(runMP['cl_A'][times[0]:times[1]:4, 133:207, 188:213].data, axis=(0))), color='#f68080',s=50)
-#        ax.set_ylim(np.min(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=0)),
-#                          np.max(np.mean(runMP['LWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
-#        ax.set_xlim(np.min(np.mean(runSEB['LW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
-#                          np.max(np.mean(runSEB['LW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
-        slope, intercept, r2, p, sterr = scipy.stats.linregress(np.ravel(np.mean(runSEB['melt'][times[0]:times[1], 133:207, 188:213], axis=(0))),
-            np.ravel(np.mean(runMP['cl_A'][times[0]:times[1]:4, 133:207, 188:213].data, axis=(0))))
-        if p <= 0.01:
-            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top', s='r$^{2}$ = %s' % np.round(r2, decimals=2),
-                          fontweight='bold', transform=ax.transAxes, size=24,color='dimgrey')
-        else:
-            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
-                          s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax.transAxes, size=24, color='dimgrey')
-        ax.set_xlabel('Modelled melt (W m$^{-2}$)', size=24, color='dimgrey', rotation=0,labelpad=10)
-        ax.set_ylabel('Modelled cloud area fraction', size=24, color='dimgrey', rotation=0, labelpad=80)
-        lab = ax.text(0.1, 0.85, transform=ax.transAxes, s='a', fontsize=32, fontweight='bold', color='dimgrey')
-        ax.spines['right'].set_visible(False)
-    elif phase == 'ice':
-        # SW vs IWP
-        #ax.set_xlim(290,600)
-        slope, intercept, r2, p, sterr = scipy.stats.linregress(np.ravel(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
-            np.ravel(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
-        if p <= 0.01:
-            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
-                              s='r$^{2}$ = %s' % np.round(r2, decimals=2), fontweight='bold',
-                              transform=ax.transAxes, size=24, color='dimgrey')
-        else:
-            ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top', s='r$^{2}$ = %s' % np.round(r2, decimals=2),
-                              transform=ax.transAxes, size=24,color='dimgrey')
-        ax.scatter(np.ravel(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))), np.ravel(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
-                             color='#f68080', s=50)
-        #ax.set_ylim(np.min(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=0)),
-        #                  np.max(np.mean(runMP['IWP'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
-        #ax.set_xlim(np.min(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))),
-        #                  np.max(np.mean(runSEB['SW_down'][times[0]:times[1], 133:207, 188:213].data, axis=(0))))
-        ax.set_xlabel('Modelled SW$_{\downarrow}$ (W m$^{-2}$)', size=24, color='dimgrey', rotation=0,labelpad=10)
-        ax.set_ylabel('Modelled IWP \n(g m$^{-2}$)', size=24, color='dimgrey', rotation=0, labelpad=80)
-        lab = ax.text(0.1, 0.85, transform=ax.transAxes, s='b', fontsize=32, fontweight='bold', color='dimgrey')
-        ax.yaxis.tick_right()
-        [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
-        ax.yaxis.set_label_coords(1.3, 0.5)
-        ax.spines['left'].set_visible(False)
+title_dict = {'SWin_corr': 'SW$_{\downarrow}$',
+              'LWin': 'LW$_{\downarrow}$',
+              'SWnet_corr': 'SW$_{net}$',
+              'LWnet_corr': 'LW$_{net}$',
+              'Hlat': 'H$_{L}$',
+              'Hsen': 'H$_{S}$',
+              'E': 'E$_{tot}$',
+              'melt_energy': 'E$_{melt}$',
+              'Cloudcover': 'Cloud cover',
+              'SW': 'SW$_{\downarrow}$',
+              'LW': 'LW$_{\downarrow}$',
+              'melt': 'E$_{melt}$'}
+
+
+def correl_scatter(x_var, y_var, times, which, run, xname, yname):
+    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
     ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.set_xlabel(title_dict[xname], fontsize = '32', color = 'dimgrey', rotation = 0, labelpad = 50)
+    ax.set_ylabel(title_dict[yname], fontsize = '32', color = 'dimgrey', rotation = 0, labelpad = 50)
     plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
-    #ax.axis('square')
-      # axs.set_adjustable('box')
-    ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey',pad=10)
-    [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
-    #[l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
-    plt.subplots_adjust(top=0.98, hspace=0.15, bottom=0.1, wspace=0.15, left=0.3, right=0.75)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/melt_v_cloud_RA1M_mod_shifted'+phase+'.png', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/melt_v_cloud_RA1M_mod_shifted'+phase+'.eps', transparent=True)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/melt_v_cloud_RA1M_mod_shifted'+phase+'.pdf', transparent=True)
+    ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+    plt.subplots_adjust(left=0.25, bottom=0.25)
+    if which == 'obs':
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(x_var, y_var)
+        ax.scatter(AWS14_SEB_Jan[x_var], AWS14_SEB_Jan[y_var], color = '#f68080')
+    elif which == 'model':
+        if xname == 'melt':
+            x = np.ravel(np.mean(x_var[(times[0]/4):(times[1]/4), 133:207, 188:213].data, axis=(0)))
+        if yname == 'melt':
+            y = np.ravel(np.mean(y_var[(times[0]/4):(times[1]/4), 133:207, 188:213].data, axis=(0)))
+        else:
+            x = np.ravel(np.mean(x_var[times[0]:times[1], 133:207, 188:213].data, axis=(0)))
+            y = np.ravel(np.mean(y_var[times[0]:times[1], 133:207, 188:213].data, axis=(0)))
+        ax.scatter(x,y, color='#f68080', s=50)
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(x,y)
+    #ax.set(adjustable='box-forced', aspect='equal')
+    if xname == 'SWin_corr' or xname == 'LWin' or xname == 'melt_energy':
+        ax.set_xlim(np.round(np.floor(np.min(AWS14_SEB_Jan[x_var])), -1), np.round(np.ceil(np.max(AWS14_SEB_Jan[x_var])), -1))
+        plt.xticks([np.round(np.floor(np.min(AWS14_SEB_Jan[x_var])), -1), np.round(np.ceil(np.max(AWS14_SEB_Jan[x_var])), -1)])
+    if yname == 'SWin_corr' or yname == 'LWin' or yname == 'melt_energy':
+        ax.set_ylim(np.round(np.floor(np.min(AWS14_SEB_Jan[y_var])), -1), np.round(np.ceil(np.max(AWS14_SEB_Jan[y_var])), -1))
+        plt.yticks([np.round(np.floor(np.min(AWS14_SEB_Jan[y_var])), -1), np.round(np.ceil(np.max(AWS14_SEB_Jan[y_var])), -1)])
+    if xname == 'SW' or xname == 'LW' or xname == 'melt' or 'Cloudcover':
+        ax.set_xlim(np.round(np.floor(np.min( x_var)), -1), np.round(np.ceil(np.max( x_var)), -1))
+        plt.xticks([np.round(np.floor(np.min( x_var)), -1), np.round(np.ceil(np.max( x_var)), -1)])
+    if yname == 'SW' or xname == 'LW' or 'Cloudcover':
+        ax.set_ylim(np.round(np.floor(np.min( y_var)), -1), np.round(np.ceil(np.max( y_var)), -1))
+        plt.yticks([np.round(np.floor(np.min( y_var)), -1), np.round(np.ceil(np.max( y_var)), -1)])
+    if yname == 'melt':
+        ax.set_ylim(0, np.round(np.ceil(np.max( y_var)), -1))
+        plt.yticks([0, np.round(np.ceil(np.max( y_var)), -1)])
+    if p <= 0.01:
+        ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                s='r$^{2}$ = %s' % np.round(r2, decimals=2),
+                fontweight='bold', transform=ax.transAxes, size=28, color='dimgrey')
+    else:
+        ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax.transAxes, size=28, color='dimgrey')
+    if which == 'obs':
+        plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/f152_obs_correl_'+xname+'_'+yname+'.png', transparent = True)
+        plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/f152_obs_correl_'+xname+'_'+yname+'.eps', transparent=True)
+    elif which =='model':
+        plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/f152_'+run+'_correl_'+xname+'_'+yname+'.png', transparent = True)
+        plt.savefig('/users/ellgil82/figures/Cloud data/f152/Microphysics/f152_'+run+'_correl_'+xname+'_'+yname+'.eps', transparent=True)
     plt.show()
 
+#correl_scatter(x_var = RA1M_vars['cl_A'], y_var = RA1M_SEB['LW_down'], xname = 'Cloudcover', times = (48,96), yname = 'LW', which = 'model', run = 'RA1M')
+#correl_scatter(x_var = RA1M_vars['cl_A'], y_var = RA1M_SEB['SW_down'], xname = 'Cloudcover', times = (48,96), yname = 'SW', which = 'model', run = 'RA1M')
+#correl_scatter(x_var = RA1M_vars['cl_A'], y_var = RA1M_SEB['melt'], xname = 'Cloudcover', times = (48,96), yname = 'melt', which = 'model', run = 'RA1M')
+#correl_scatter(x_var = RA1M_mod_vars['cl_A'], y_var = RA1M_mod_SEB['LW_down'], xname = 'Cloudcover', times = (48,96), yname = 'LW', which = 'model', run = 'RA1M_mod')
+#correl_scatter(x_var = RA1M_mod_vars['cl_A'], y_var = RA1M_mod_SEB['SW_down'], xname = 'Cloudcover', times = (48,96), yname = 'SW', which = 'model', run = 'RA1M_mod')
+#correl_scatter(x_var = RA1M_mod_vars['cl_A'], y_var = RA1M_mod_SEB['melt'], xname = 'Cloudcover', times = (48,96), yname = 'melt', which = 'model', run = 'RA1M_mod')
+#correl_scatter(x_var = RA1T_vars['cl_A'], y_var = RA1T_SEB['LW_down'], xname = 'Cloudcover', times = (48,96), yname = 'LW', which = 'model', run = 'RA1M')
+#correl_scatter(x_var = RA1T_vars['cl_A'], y_var = RA1T_SEB['SW_down'], xname = 'Cloudcover', times = (48,96), yname = 'SW', which = 'model', run = 'RA1M')
+#correl_scatter(x_var = RA1T_vars['cl_A'], y_var = RA1T_SEB['melt'], xname = 'Cloudcover', times = (48,96), yname = 'melt', which = 'model', run = 'RA1M')
+#correl_scatter(x_var = RA1T_mod_vars['cl_A'], y_var = RA1T_mod_SEB['LW_down'], xname = 'Cloudcover', times = (48,96), yname = 'LW', which = 'model', run = 'RA1T_mod')
+#correl_scatter(x_var = RA1T_mod_vars['cl_A'], y_var = RA1T_mod_SEB['SW_down'], xname = 'Cloudcover', times = (48,96), yname = 'SW', which = 'model', run = 'RA1T_mod')
+#correl_scatter(x_var = RA1T_mod_vars['cl_A'], y_var = RA1T_mod_SEB['melt'], xname = 'Cloudcover', times = (48,96), yname = 'melt', which = 'model', run = 'RA1T_mod')
 
 
-#correl_SEB_sgl(RA1M_mod_SEB, RA1M_mod_vars, times = (0,96), phase = 'liquid')
 
 
 
-def vol_frac(run1, run2, run3, run4, which_var):
-    fig, ax = plt.subplots(1,1, figsize=(10, 9))
+
+
+#RA1M_TCW = RA1M_vars['AWS14_mean_QCL']+RA1M_vars['AWS14_mean_QCF']
+#RA1M_mod_TCW = RA1M_mod_vars['AWS14_mean_QCL']+RA1M_mod_vars['AWS14_mean_QCF']
+#RA1T_mod_TCW = RA1T_mod_vars['AWS14_mean_QCL']+RA1T_mod_vars['AWS14_mean_QCF']
+#RA1T_TCW = RA1T_vars['AWS14_mean_QCL']+RA1T_vars['AWS14_mean_QCF']
+#obs_TCW = IWC_profile + LWC_profile
+
+def TCW_plot(run1, run2, run3, run4):
+    fig, ax = plt.subplots(1, 1, figsize=(9, 8))
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     plt.setp(ax.spines.values(), linewidth=3, color='dimgrey')
     ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
     ax.set_ylim(0, max(run1['altitude']))
-    #[l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
-    m1 = ax.plot(np.mean(run1[which_var][60:68,:40,199:201,199:201].data, axis = (0,2,3)), run1['altitude'], color= '#f87e7e', linestyle='--', linewidth=2.5, label = 'RA1M')
-    m2 = ax.plot(np.mean(run2[which_var][60:68,:40,199:201,199:201].data, axis = (0,2,3)), run1['altitude'], color='#1f78b4', linestyle='--', linewidth=2.5, label = 'RA1M_mod')
-    m3 = ax.plot(np.mean(run3[which_var][60:68,:40,199:201,199:201].data, axis = (0,2,3)), run1['altitude'], color='#33a02c', linestyle='--', linewidth=2.5, label= 'RA1T')
-    m4 = ax.plot(np.mean(run4[which_var][60:68,:40,199:201,199:201].data, axis = (0,2,3)), run1['altitude'], color='dimgrey', linestyle='--', linewidth=2.5, label='RA1T_mod')
-    ax.set_xlabel('Cloud volume fraction', fontname='SegoeUI semibold', color='dimgrey',
-                     fontsize=28, labelpad=35)
-    ax.set_ylabel('Altitude \n(km)', rotation=0, fontname='SegoeUI semibold', fontsize=28, color='dimgrey',
-                     labelpad=80)
-    ax.set_xlim(0, 1.)
+    m1_v1 = ax.plot(RA1M_TCW, run1['altitude'],color='#f87e7e', marker='o', markerfacecolor='None', linestyle='--', linewidth=2.5, label='RA1M')
+    m2_v1 = ax.plot(RA1M_mod_TCW, run1['altitude'], color='#1f78b4', marker='o', linestyle='--', linewidth=2.5, label='RA1M_mod')
+    m3_v1 = ax.plot(RA1T_TCW, run1['altitude'], color='#33a02c', marker='+', linestyle='--', linewidth=2.5, label='RA1T')
+    m4_v1 = ax.plot(RA1T_mod_TCW, run1['altitude'], color='dimgrey', marker='P', linestyle='--', linewidth=2.5, label='RA1T_mod')
+    p = ax.plot(obs_TCW, run1['altitude'], color='k', linewidth=2.5, label='Observations')
+    ax.set_xlabel('Total condensed water (g kg$^{-1}$)', fontname='SegoeUI semibold', color='dimgrey', fontsize=28,labelpad=35)
+    ax.set_ylabel('Altitude \n(km)', rotation=0, fontname='SegoeUI semibold', fontsize=28, color='dimgrey',labelpad=80)
+    ax.tick_params(labelleft = 'off')
+    ax.set_xlim(0,0.3)
+    ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+    ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useMathText=True, useOffset=False))
+    ax.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+    ax.xaxis.get_offset_text().set_fontsize(24)
+    ax.xaxis.get_offset_text().set_color('dimgrey')
+    ax.set_yticklabels([0,5000])
     for i, label in enumerate(ax.get_xticklabels()):
         if i > 0 and i < len(ax.get_xticklabels()) - 1:
             label.set_visible(False)
-    ax.text(0.1, 0.85, transform=ax.transAxes, s='a', fontsize=32, fontweight='bold', color='dimgrey')
-    plt.subplots_adjust(wspace=0.1, bottom=0.23, top=0.95, left=0.27, right=0.95)
-    # handles, labels = ax[1].get_legend_handles_labels()
-    # handles = [handles[0], handles[1], handles[-1], handles[2],  handles[3] ]
-    # labels = [labels[0], labels[1], labels[-1], labels[2], labels[3]]
-    # lgd = plt.legend(handles, labels, fontsize=20, markerscale=2)
     lgd = plt.legend(fontsize=20, markerscale=2)
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey')
     lgd.get_frame().set_linewidth(0.0)
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/AWS14_vertical_profiles_'+which_var+'.eps')
-    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/AWS14_vertical_profiles_'+which_var+'.png')
+    plt.subplots_adjust(left = 0.25, bottom = 0.25)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/AWS14_vertical_profiles_TCW.eps')
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/AWS14_vertical_profiles_TCW.png')
     plt.show()
 
-vol_frac(RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, which_var='cl_vol')
-vol_frac(RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, which_var='ice_cl')
-vol_frac(RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, which_var='liq_cl')
+#TCW_plot(RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars)
+
+def vol_frac(run1, run2, run3, run4, v1, v2):
+    fig, ax = plt.subplots(1,2, figsize=(16, 9))
+    ax = ax.flatten()
+    for axs in ax:
+        axs.spines['top'].set_visible(False)
+        axs.spines['right'].set_visible(False)
+        plt.setp(axs.spines.values(), linewidth=3, color='dimgrey')
+        axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+        axs.set_ylim(0, max(run1['altitude']))
+        plt.sca(axs)
+        plt.xticks([0, 0.5, 1.0])
+    m1_v1 = ax[0].plot(np.mean(run1[v1][60:68,:40,199:201,199:201].data, axis = (0,2,3)), run1['altitude'], color='#1f78b4', marker = 'o', markersize = 15, linewidth=3, label = 'RA1M')
+    m2_v1 = ax[0].plot(np.mean(run2[v1][60:68,:40,199:201,199:201].data, axis = (0,2,3)), run1['altitude'], color='#1f78b4',  marker = 'o', markersize = 15, markerfacecolor = 'None', linestyle='--', linewidth=3, label = 'RA1M_mod')
+    m3_v1 = ax[0].plot(np.mean(run3[v1][60:68,:40,199:201,199:201].data, axis = (0,2,3)), run1['altitude'], color='#f87e7e', marker = 'X', markersize = 15, linewidth=3, label= 'RA1T')
+    m4_v1 = ax[0].plot(np.mean(run4[v1][60:68,:40,199:201,199:201].data, axis = (0,2,3)), run1['altitude'], color='#f87e7e',  marker = 'x', markersize = 15, linestyle='--', linewidth=3, label='RA1T_mod')
+    ax[0].set_xlabel('Ice cloud volume fraction', fontname='SegoeUI semibold', color='dimgrey', fontsize=28, labelpad=35)
+    ax[0].set_ylabel('Altitude \n(km)', rotation=0, fontname='SegoeUI semibold', fontsize=28, color='dimgrey', labelpad=80)
+    ax[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+    m1_v2 = ax[1].plot(np.mean(run1[v2][60:68, :40, 199:201, 199:201].data, axis=(0, 2, 3)), run1['altitude'], color='#1f78b4', markersize = 15, marker='o', linewidth=3, label='RA1M')
+    m2_v2 = ax[1].plot(np.mean(run2[v2][60:68, :40, 199:201, 199:201].data, axis=(0, 2, 3)), run1['altitude'], color='#1f78b4', markersize = 15, marker='o',  markerfacecolor='None', linestyle='--', linewidth=3, label='RA1M_mod')
+    m3_v2 = ax[1].plot(np.mean(run3[v2][60:68, :40, 199:201, 199:201].data, axis=(0, 2, 3)), run1['altitude'], color='#f87e7e', markersize = 15, marker='X', linewidth=3, label='RA1T')
+    m4_v2 = ax[1].plot(np.mean(run4[v2][60:68, :40, 199:201, 199:201].data, axis=(0, 2, 3)), run1['altitude'], color='#f87e7e', markersize = 15, marker='x', linestyle='--', linewidth=3, label='RA1T_mod')
+    ax[1].set_xlabel('Liquid cloud volume fraction', fontname='SegoeUI semibold', color='dimgrey', fontsize=28,labelpad=35)
+    ax[1].tick_params(labelleft='off')
+    ax[0].text(-0.35, 0.95, transform=ax[0].transAxes, s='(c)', fontsize=36, fontweight='bold', color='dimgrey')
+    ax[1].text(-0.15, 0.95, transform=ax[1].transAxes, s='(d)', fontsize=36, fontweight='bold', color='dimgrey')
+    plt.subplots_adjust(wspace=0.1, bottom=0.23, top=0.95, left=0.17, right=0.98)
+    for axs in ax:
+        axs.set_xlim(0, 1.01)
+    lgd = plt.legend(fontsize=20, markerscale=1.25)
+    for ln in lgd.get_texts():
+        plt.setp(ln, color='dimgrey')
+    lgd.get_frame().set_linewidth(0.0)
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/AWS14_vertical_profiles_' + v1 + '_' + v2 + '.eps')
+    plt.savefig('/users/ellgil82/figures/Cloud data/f152/Vertical profiles/AWS14_vertical_profiles_' + v1 + '_' + v2 + '.png')
+    plt.show()
+
+#vol_frac(RA1M_vars, RA1M_mod_vars, RA1T_vars, RA1T_mod_vars, v1 = 'ice_cl', v2 = 'liq_cl')
+
+
+
+ #   ax[1].axes.tick_params(axis = 'both', which = 'both', direction = 'in', length = 5, width = 1.5,  labelsize = 24, pad = 10)
+
+#    plt.setp(ax[0].get_xticklabels()[-3], visible=False)
+    #plt.setp(ax[0].get_xticklabels()[-5], visible=False)
+#    plt.setp(ax[1].get_xticklabels()[-3], visible=False)
+
+
+

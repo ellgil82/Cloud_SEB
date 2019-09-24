@@ -180,7 +180,7 @@ def load_t_srs(var, domain):
             HL_srs = np.mean(daymn_HL[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
             HS_srs = np.mean(daymn_HS[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
             Etot_srs = np.mean(Etot[:-1, 0, 199:201, 199:201], axis=(1, 2))
-            Etot_srs = Etot_srs - AWS14_SEB['Gs'].values
+            #Etot_srs = Etot_srs - AWS14_SEB['Gs'].values
             Ts_srs = np.mean(Ts[:-1, 0, 199:201, 199:201].data, axis=(1, 2))
             melt_srs = np.copy(Etot_srs)
             melt_srs[Ts_srs < -0.025] = 0
@@ -544,8 +544,8 @@ def calc_bias():
     os.chdir('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/netcdfs/')
     SEB_dict = load_t_srs(var='SEB', domain='AWS14')
     met_dict = load_t_srs(var = 'met', domain = 'AWS14')
-    surf_met_obs = [AWS_var['Tsobs'], AWS_var['Tair_2m'], AWS_var['qair_2m'], AWS_var['FF_10m'], AWS_var['SWin_corr'], AWS_var['LWin'], AWS_var['SWnet_corr'], AWS_var['LWnet_corr'], AWS_var['Hsen'], AWS_var['Hlat'], AWS_var['E'], AWS_var['melt_energy']]#, AWS_var['melt_energy']]
-    surf_mod = [met_dict['Ts_srs'], met_dict['Tair_srs'], met_dict['q_srs'], met_dict['ff_srs'], SEB_dict['SWdown_srs'], SEB_dict['LWdown_srs'], SEB_dict['SWnet_srs'], SEB_dict['LWnet_srs'],  SEB_dict['HS_srs'],  SEB_dict['HL_srs'], SEB_dict['Etot_srs'], SEB_dict['melt_srs']]#, SEB_1p5['melt_forced']]
+    surf_met_obs = [AWS_var['Tsobs'], AWS_var['Tair_2m'], AWS_var['qair_2m'], AWS_var['FF_10m'], AWS_var['SWin_corr'],  AWS_var['SWout'],  AWS_var['LWin'],  AWS_var['LWout_corr'], AWS_var['SWnet_corr'], AWS_var['LWnet_corr'], AWS_var['Hsen'], AWS_var['Hlat'], AWS_var['E'], AWS_var['totm_nrg']]#, AWS_var['melt_energy']]
+    surf_mod = [met_dict['Ts_srs'], met_dict['Tair_srs'], met_dict['q_srs'], met_dict['ff_srs'], SEB_dict['SWdown_srs'], 0-SEB_dict['SWup_srs'],  SEB_dict['LWdown_srs'],  0-SEB_dict['LWup_srs'], SEB_dict['SWnet_srs'], SEB_dict['LWnet_srs'],  SEB_dict['HS_srs'],  SEB_dict['HL_srs'], SEB_dict['Etot_srs'], SEB_dict['melt_srs']]#, SEB_1p5['melt_forced']]
     mean_obs = []
     mean_mod = []
     bias = []
@@ -558,12 +558,13 @@ def calc_bias():
         mean_obs.append(np.mean(surf_met_obs[i]))
         mean_mod.append(np.mean(surf_mod[i]))
         bias.append(mean_mod[i] - mean_obs[i])
-        slope, intercept, r2, p, sterr = scipy.stats.linregress(surf_met_obs[i], surf_mod[i])
-        r2s.append(r2)
+        slope, intercept, r, p, sterr = scipy.stats.linregress(surf_met_obs[i], surf_mod[i])
+        #r, p = scipy.stats.pearsonr(surf_met_obs[i], surf_mod[i])
+        r2s.append(r)
         mse = mean_squared_error(y_true = surf_met_obs[i], y_pred = surf_mod[i])
         rmse = np.sqrt(mse)
         rmses.append(rmse)
-        idx = ['Ts', 'Tair', 'RH', 'wind', 'SWd', 'LWd', 'SWn', 'LWn', 'SH', 'LH', 'total', 'melt']#, 'melt forced']
+    idx = ['Ts', 'Tair', 'RH', 'wind', 'SWd', 'SWu', 'LWd', 'LWu', 'SWn', 'LWn', 'SH', 'LH', 'total', 'melt']#, 'melt forced']
     df = pd.DataFrame(index = idx)
     df['obs mean'] = pd.Series(mean_obs, index = idx)
     df['mod mean'] = pd.Series(mean_mod, index = idx)
@@ -576,10 +577,10 @@ def calc_bias():
         print(idx[i])
         print('\nr2 = %s\n' % r2)
     print('RMSE/bias = \n\n\n')
-    df.to_csv('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/OFCAP_bias_and_RMSE_Gs.csv')
+    df.to_csv('/data/mac/ellgil82/cloud_data/um/vn11_test_runs/Jan_2011/OFCAP_bias_and_RMSE.csv')
     print(df)
 
-#calc_bias()
+calc_bias()
 
 AWS_var = load_AWS('AWS14_SEB_2009-2017_norp')
 AWS_melt = AWS_var[12:-1]['melt_energy']
@@ -722,7 +723,8 @@ title_dict = {'SWin_corr': 'SW$_{\downarrow}$',
               'Cloudcover': 'Cloud cover',
               'SWdown_srs': 'SW$_{\downarrow}$',
               'LWdown_srs': 'LW$_{\downarrow}$',
-              'melt_srs': 'E$_{melt}$'}
+              'melt_srs': 'E$_{melt}$',
+              'transmissivity': '$\tau$'}
 
 col_dict = {'SWin_corr': '#DC143C',
               'LWin': '#EA580F',
@@ -926,68 +928,6 @@ def remove_diurnal_cyc(data):
 #ctrl_SW = iris.load_cube('OFCAP_SWdown.nc', 'surface_downwelling_shortwave_flux_in_air')
 #ctrl_SW, ctrl_SW_diur = remove_diurnal_cyc(ctrl_SW)
 
-def correl_scatter(x_var, y_var, which):
-    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.set_xlabel(title_dict[x_var], fontsize = '32', color = 'dimgrey', rotation = 0, labelpad = 50)
-    ax.set_ylabel(title_dict[y_var], fontsize = '32', color = 'dimgrey', rotation = 0, labelpad = 50)
-    plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
-    ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-    plt.subplots_adjust(left=0.25, bottom=0.25)
-    if which == 'obs':
-        slope, intercept, r2, p, sterr = scipy.stats.linregress(AWS14_SEB[x_var], AWS14_SEB[y_var])
-        ax.scatter(AWS14_SEB[x_var], AWS14_SEB[y_var], color = '#f68080')
-    elif which == 'model':
-        slope, intercept, r2, p, sterr = scipy.stats.linregress(ctrl_SEB_dict[x_var], ctrl_SEB_dict[y_var])
-        ax.scatter(ctrl_SEB_dict[x_var], ctrl_SEB_dict[y_var], color = '#f68080')
-    #ax.set(adjustable='box-forced', aspect='equal')
-    if x_var == 'transmissivity' or x_var == 'LWin' or x_var == 'melt_energy':
-        ax.set_xlim(np.round(np.floor(np.min(AWS14_SEB[x_var])), -1), np.round(np.ceil(np.max(AWS14_SEB[x_var])), -1))
-        plt.xticks([np.round(np.floor(np.min(AWS14_SEB[x_var])), -1), np.round(np.ceil(np.max(AWS14_SEB[x_var])), -1)])
-    if y_var == 'transmissivity' or y_var == 'LWin' or y_var == 'melt_energy':
-        ax.set_ylim(np.round(np.floor(np.min(AWS14_SEB[y_var])), -1), np.round(np.ceil(np.max(AWS14_SEB[y_var])), -1))
-        plt.yticks([np.round(np.floor(np.min(AWS14_SEB[y_var])), -1), np.round(np.ceil(np.max(AWS14_SEB[y_var])), -1)])
-    if x_var == 'Cloudcover':
-        ax.set_xlim(0, 1)
-        plt.xticks([0, 1])
-    if y_var == 'Cloudcover':
-        ax.set_ylim(0., 1.)
-        plt.yticks([0, 1])
-    if x_var == 'SWdown_srs' or x_var == 'LWdown_srs' or x_var == 'melt_srs':
-        ax.set_xlim(np.round(np.floor(np.min(ctrl_SEB_dict[x_var])), -1), np.round(np.ceil(np.max(ctrl_SEB_dict[x_var])), -1))
-        plt.xticks([np.round(np.floor(np.min(ctrl_SEB_dict[x_var])), -1), np.round(np.ceil(np.max(ctrl_SEB_dict[x_var])), -1)])
-    if y_var == 'SWdown_srs' or x_var == 'LWdown_srs' or x_var == 'melt_srs':
-        ax.set_ylim(np.round(np.floor(np.min(ctrl_SEB_dict[y_var])), -1), np.round(np.ceil(np.max(ctrl_SEB_dict[y_var])), -1))
-        plt.yticks([np.round(np.floor(np.min(ctrl_SEB_dict[y_var])), -1), np.round(np.ceil(np.max(ctrl_SEB_dict[y_var])), -1)])
-    if y_var == 'melt_srs':
-        ax.set_ylim(0, np.round(np.ceil(np.max(ctrl_SEB_dict[y_var])), -1))
-        plt.yticks([0, np.round(np.ceil(np.max(ctrl_SEB_dict[y_var])), -1)])
-    if p <= 0.01:
-        ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
-                s='r$^{2}$ = %s' % np.round(r2, decimals=2),
-                fontweight='bold', transform=ax.transAxes, size=28, color='dimgrey')
-    else:
-        ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
-                s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax.transAxes, size=28, color='dimgrey')
-    if which == 'obs':
-        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_obs_correl_'+x_var+'_'+y_var+'.png', transparent = True)
-        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_obs_correl_'+x_var+'_'+y_var+'.eps', transparent=True)
-    elif which =='model':
-        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_model_correl_'+x_var+'_'+y_var+'.png', transparent = True)
-        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_model_correl_'+x_var+'_'+y_var+'.eps', transparent=True)
-    plt.show()
-
-#correl_scatter(x_var = 'LWin', y_var = 'melt_energy', which = 'obs')
-#correl_scatter(x_var = 'SWin_corr', y_var = 'melt_energy', which = 'obs' )
-#correl_scatter(x_var = 'Cloudcover', y_var = 'melt_energy' , which = 'obs')
-correl_scatter(x_var = 'LWdown_srs', y_var = 'melt_srs', which = 'model')
-correl_scatter(x_var = 'SWdown_srs', y_var = 'melt_srs', which = 'model' )
-
-
-
-
-
 def full_SEB():
     fig, ax = plt.subplots(figsize = (18,8), sharex = True)
     ax2 = ax.twiny()
@@ -1135,6 +1075,16 @@ def plot_synop(time_idx):
 #       b) fluxes
 #       c) melt
 
+# Find relationships between cloud phase and fluxes at AWS 14
+IWP = iris.load('OFCAP_IWP.nc')
+IWP = np.mean(IWP[0][:-1,0,199:201,199:201].data, axis = (1,2))
+LWP = iris.load('OFCAP_LWP.nc')
+LWP = np.mean(LWP[0][:-1,0,199:201,199:201].data, axis = (1,2))
+Slope, intercept, r2_iwp_lw, p_iwp_lw, sterr = scipy.stats.linregress(IWP, ctrl_SEB_dict['LWdown_srs'])
+Slope, intercept, r2_iwp_sw, p_iwp_sw, sterr = scipy.stats.linregress(IWP, ctrl_SEB_dict['SWdown_srs'])
+Slope, intercept, r2_lwp_lw, p_lwp_lw, sterr = scipy.stats.linregress(LWP, ctrl_SEB_dict['LWdown_srs'])
+Slope, intercept, r2_lwp_sw, p_lwp_sw, sterr = scipy.stats.linregress(LWP, ctrl_SEB_dict['SWdown_srs'])
+
 
 ## ================================================= PLOTTING ======================================================= ##
 
@@ -1142,6 +1092,76 @@ def plot_synop(time_idx):
 rcParams['font.family'] = 'sans-serif'
 rcParams['font.sans-serif'] = ['Helvetica', 'Liberation sans', 'Tahoma', 'DejaVu Sans',
                                'Verdana']
+
+
+
+def correl_scatter(x_var, y_var, which):
+    fig, ax = plt.subplots(1, 1, figsize=(10, 9))
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.set_xlabel(title_dict[x_var] + ' (W m$^{-2}$)', fontsize = '32', color = 'dimgrey', rotation = 0, labelpad = 40)
+    ax.set_ylabel(title_dict[y_var] + '\n (W m$^{-2}$)', fontsize = '32', color = 'dimgrey', rotation = 0, labelpad = 80)
+    plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
+    ax.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+    plt.subplots_adjust(left=0.3, bottom=0.25, right = 0.95)
+    if which == 'obs':
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(AWS14_SEB[x_var], AWS14_SEB[y_var])
+        ax.scatter(AWS14_SEB[x_var], AWS14_SEB[y_var], color = '#f68080')
+    elif which == 'model':
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(ctrl_SEB_dict[x_var], ctrl_SEB_dict[y_var])
+        ax.scatter(ctrl_SEB_dict[x_var], ctrl_SEB_dict[y_var], color = '#f68080')
+    #ax.set(adjustable='box-forced', aspect='equal')
+    if  x_var == 'SWin_corr' or x_var == 'LWin' or x_var == 'melt_energy':
+        ax.set_xlim(0, np.round(np.ceil(np.max(AWS14_SEB[x_var])), -1))
+        plt.xticks([0, (np.round(np.ceil(np.max(AWS14_SEB[x_var])), -1)/2.), np.round(np.ceil(np.max(AWS14_SEB[x_var])), -1)])
+    if  x_var == 'SWin_corr' or y_var == 'LWin' or y_var == 'melt_energy':
+        ax.set_ylim(0, np.round(np.ceil(np.max(AWS14_SEB[y_var])), -1))
+        plt.yticks([0, (np.round(np.ceil(np.max(AWS14_SEB[y_var])), -1)/2.), np.round(np.ceil(np.max(AWS14_SEB[y_var])), -1)])
+    if x_var == 'Cloudcover' or x_var == 'transmissivity':
+        ax.set_xlim(0, 1)
+        plt.xticks([0, 0.5, 1])
+    if y_var == 'Cloudcover' or y_var == 'transmissivity':
+        ax.set_ylim(0.,  1.)
+        plt.yticks([0, 0.5, 1])
+    if x_var == 'SWdown_srs' or x_var == 'LWdown_srs' or x_var == 'melt_srs':
+        ax.set_xlim(0, np.round(np.ceil(np.max(ctrl_SEB_dict[x_var])), -1))
+        plt.xticks([0, (np.round(np.ceil(np.max(ctrl_SEB_dict[x_var])), -1)/2.), np.round(np.ceil(np.max(ctrl_SEB_dict[x_var])), -1)])
+    if y_var == 'SWdown_srs' or x_var == 'LWdown_srs' or x_var == 'melt_srs':
+        ax.set_ylim(np.round(np.floor(np.min(ctrl_SEB_dict[y_var])), -1), np.round(np.ceil(np.max(ctrl_SEB_dict[y_var])), -1))
+        plt.yticks([0, (np.round(np.ceil(np.max(ctrl_SEB_dict[y_var])), -1)/2.), np.round(np.ceil(np.max(ctrl_SEB_dict[y_var])), -1)])
+    if y_var == 'melt_srs':
+        ax.set_ylim(0,  np.round(np.ceil(np.max(ctrl_SEB_dict[y_var])), -1))
+        plt.yticks([0, (np.round(np.ceil(np.max(ctrl_SEB_dict[y_var])), -1)/2.), np.round(np.ceil(np.max(ctrl_SEB_dict[y_var])), -1)])
+    if p <= 0.01:
+        ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                s='r$^{2}$ = %s' % np.round(r2, decimals=2),
+                fontweight='bold', transform=ax.transAxes, size=28, color='dimgrey')
+    else:
+        ax.text(0.75, 0.9, horizontalalignment='right', verticalalignment='top',
+                s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax.transAxes, size=28, color='dimgrey')
+    #[l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 3 != 0]
+    #[l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
+    plt.subplots_adjust(bottom=0.2, top=0.92, left=0.3, right=0.96)
+    if x_var == 'SWin_corr' or x_var == 'transmissivity' and y_var == 'melt_energy':
+        ax.text(-0.35, 1.02, transform=ax.transAxes, s='(a)', fontsize=36, fontweight='bold', color='dimgrey')
+    elif x_var == 'LWin' and y_var == 'melt_energy':
+        ax.text(-0.25, 1.02, transform=ax.transAxes, s='(b)', fontsize=36, fontweight='bold', color='dimgrey')
+    if which == 'obs':
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_obs_correl_'+x_var+'_'+y_var+'.png', transparent = True)
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_obs_correl_'+x_var+'_'+y_var+'.eps', transparent=True)
+    elif which =='model':
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_model_correl_'+x_var+'_'+y_var+'.png', transparent = True)
+        plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_model_correl_'+x_var+'_'+y_var+'.eps', transparent=True)
+    plt.show()
+
+correl_scatter(x_var = 'LWin', y_var = 'melt_energy', which = 'obs')
+#correl_scatter(x_var = 'SWin_corr', y_var = 'melt_energy', which = 'obs' )
+#correl_scatter(x_var = 'transmissivity', y_var = 'melt_energy', which = 'obs' )
+#correl_scatter(x_var = 'Cloudcover', y_var = 'melt_energy' , which = 'obs')
+correl_scatter(x_var = 'LWdown_srs', y_var = 'melt_srs', which = 'model')
+correl_scatter(x_var = 'SWdown_srs', y_var = 'melt_srs', which = 'model' )
+
+
 ## Caption: mean modelled water paths (in g kg-1) over the Larsen C ice shelf during Jan 2011
 
 def column_totals():
